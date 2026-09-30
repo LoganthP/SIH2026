@@ -71,16 +71,6 @@
   box-shadow: 0 0 12px rgba(34, 211, 238, 0.4);
 }
 
-/* Tricolour tiny dot */
-.landing-root .tricolor-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #ff9933 0%, #ffffff 50%, #138808 100%);
-  display: inline-block;
-  box-shadow: 0 0 8px rgba(255, 255, 255, 0.4);
-}
-
 /* Radar scanline loop */
 @keyframes landing-scanline {
   0% { transform: translateY(-100%); opacity: 0; }

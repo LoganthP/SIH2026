@@ -11,14 +11,6 @@
  * - Focused specifically on offline AI-integrity assurance for computer vision in defence.
  */
 
-export interface TeamMember {
-  id: string;
-  name: string;
-  role: string;
-  isLead?: boolean;
-  photo?: string;
-  initials: string;
-}
 
 export interface ProblemItem {
   number: string;
@@ -60,24 +52,7 @@ export interface ImpactRow {
 }
 
 export const LANDING_CONTENT = {
-  meta: {
-    event: "SMART INDIA HACKATHON 2026",
-    teamName: "TEAM JAI HIND",
-    productName: "TEJAS-CV",
-    fullTitle: "Trusted Evaluation & Judgement Assurance System for Computer Vision",
-    problemStatement: "Problem Statement SIH26228",
-    theme: "Blockchain & Cybersecurity",
-    problemTitle: "AI/ML Model & Dataset Integrity, Provenance and Tamper-Proof Assurance for Defence Applications",
-    tagline: "DETECT • EXPLAIN • PROVE • DECIDE",
-    motto: "From 'Trust me' to 'Prove it.'",
-    copyright: "© 2026 Team Jai Hind. Smart India Hackathon 2026 Prototype.",
-    missionStatement: "United by innovation. Driven by purpose.",
-    closingQuote: "Innovating today for a smarter, safer tomorrow.",
-  },
-
   nav: {
-    brand: "JAI HIND",
-    subBrand: "TEJAS-CV",
     links: [
       { id: "hero", label: "Home" },
       { id: "problem", label: "Problem" },
@@ -85,7 +60,6 @@ export const LANDING_CONTENT = {
       { id: "workflow", label: "Working" },
       { id: "capabilities", label: "Features" },
       { id: "impact", label: "Impact" },
-      { id: "team", label: "Team" },
     ],
     loginBtn: "Log in",
     signupBtn: "Request access",
@@ -94,14 +68,11 @@ export const LANDING_CONTENT = {
   },
 
   hero: {
-    badge: "SMART INDIA HACKATHON 2026 · TEAM JAI HIND PRESENTS",
     title: "TEJAS-CV",
     subtitle: "Trusted Evaluation & Judgement Assurance System for Computer Vision",
-    problemChip: "Problem Statement SIH26228 · Blockchain & Cybersecurity",
     tagline: "DETECT • EXPLAIN • PROVE • DECIDE",
     motto: "From \"Trust me\" to \"Prove it.\"",
     primaryCta: "Explore our idea",
-    secondaryCta: "Meet Team Jai Hind",
     coreNodes: ["Data", "Model", "Provenance", "Drift"],
   },
 
@@ -112,7 +83,6 @@ export const LANDING_CONTENT = {
     theProblemHeading: "The Problem",
     theProblemBody:
       "Defence computer-vision systems increasingly depend on datasets, pretrained models and third-party components whose integrity is assumed rather than verified.",
-    problemStatementTag: "SIH26228 · Official Problem Statement Focus",
     whyItMattersHeading: "Why it matters",
     whyItMattersBody:
       "A poisoned dataset, a hidden backdoor or a silently swapped model can make a system fail exactly when it matters, and without evidence nobody can tell what went wrong.",
@@ -427,74 +397,5 @@ export const LANDING_CONTENT = {
     ] as ImpactRow[],
     expectedOutcome:
       "TEJAS-CV aims to give defence stakeholders verifiable confidence in the data, models and outputs their vision systems depend on.",
-  },
-
-  team: {
-    sectionNum: "10",
-    sectionLabel: "OUR TEAM",
-    heading: "Meet Team Jai Hind",
-    subtitle: "The minds behind TEJAS-CV.",
-    lead: {
-      id: "malaika",
-      name: "Malaika R.K",
-      role: "TEAM LEAD",
-      isLead: true,
-      initials: "MR",
-      photo: "/src/landing/team/malaika.jpg",
-    } as TeamMember,
-    members: [
-      {
-        id: "gana",
-        name: "Gana Shree",
-        role: "TEAM JAI HIND",
-        initials: "GS",
-        photo: "/src/landing/team/gana_shree.jpg",
-      },
-      {
-        id: "durgi",
-        name: "Durgi Niveditha",
-        role: "TEAM JAI HIND",
-        initials: "DN",
-        photo: "/src/landing/team/durgi_niveditha.jpg",
-      },
-      {
-        id: "mahesh",
-        name: "Mahesh",
-        role: "TEAM JAI HIND",
-        initials: "M",
-        photo: "/src/landing/team/mahesh.jpg",
-      },
-      {
-        id: "loganth",
-        name: "Loganth",
-        role: "TEAM JAI HIND",
-        initials: "LP",
-        photo: "/src/landing/team/loganth.jpg",
-      },
-      {
-        id: "lavanya",
-        name: "H.R Lavanya",
-        role: "TEAM JAI HIND",
-        initials: "HL",
-        photo: "/src/landing/team/lavanya.jpg",
-      },
-    ] as TeamMember[],
-    tagline: "TEAM JAI HIND",
-    quote: "United by innovation. Driven by purpose.",
-  },
-
-  closing: {
-    event: "SMART INDIA HACKATHON 2026",
-    title: "TEJAS-CV",
-    stackedWords: ["DETECT", "EXPLAIN", "PROVE", "DECIDE"],
-    presentedBy: "PRESENTED BY TEAM JAI HIND",
-    roster: "Malaika R.K (Team Lead) · Gana Shree · Durgi Niveditha · Mahesh · Loganth · H.R Lavanya",
-    problemStatement: "PROBLEM STATEMENT SIH26228",
-    motto: "Innovating today for a smarter, safer tomorrow.",
-    links: [
-      { label: "Log in", href: "/login" },
-      { label: "Request access", href: "/signup" },
-    ],
-    copyright: "© 2026 Team Jai Hind. All rights reserved.",
   },
 };

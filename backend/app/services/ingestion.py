@@ -40,6 +40,8 @@ class IngestionError(Exception):
 
 def safe_extract(zip_path: Path, dest: Path) -> None:
     """Zip-slip, symlink and zip-bomb protected extraction."""
+    import os
+    from datetime import datetime
     dest = dest.resolve()
     with zipfile.ZipFile(zip_path) as zf:
         infos = zf.infolist()
@@ -53,7 +55,10 @@ def safe_extract(zip_path: Path, dest: Path) -> None:
             target = (dest / info.filename).resolve()
             if not target.is_relative_to(dest):
                 raise IngestionError(f"path traversal rejected: {info.filename}")
-        zf.extractall(dest)
+            zf.extract(info, dest)
+            dt = datetime(*info.date_time)
+            ts = dt.timestamp()
+            os.utime(target, (ts, ts))
 
 
 def _extract_exif(im: Image.Image) -> dict[str, Any] | None:
@@ -115,18 +120,14 @@ def _profile_sample(p: Path, rel: str, archive_ts: str | None = None) -> dict[st
         with Image.open(io.BytesIO(data)) as im:
             fmt = im.format
             mode = im.mode
-            exif = _extract_exif(im)
-            im_rgb = im.convert("RGB")
             rec["width"], rec["height"] = im.size
-            rec["phash"] = str(imagehash.phash(im_rgb))
-            rec["stats"] = image_stats(im_rgb)
         if fmt in FORMAT_EXT and p.suffix.lower() not in FORMAT_EXT[fmt]:
             rec["readable"], rec["error"] = False, f"extension {p.suffix} does not match content ({fmt})"
     except (UnidentifiedImageError, OSError, SyntaxError, ValueError) as exc:
         rec["readable"], rec["error"] = False, f"{type(exc).__name__}: {exc}"[:200]
 
     rec["source_meta"] = {
-        "archive_modified_at": archive_ts,
+        "source_modified_at": archive_ts,
         "size_bytes": len(data),
         "width": rec["width"],
         "height": rec["height"],

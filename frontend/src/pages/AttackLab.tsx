@@ -17,6 +17,7 @@ import {
   Info,
   CheckCircle2,
   Lock,
+  ChevronDown,
 } from "lucide-react";
 import {
   getScenarios,
@@ -43,6 +44,7 @@ import { GlassPanel } from "../components/ui/GlassPanel";
 import { DecisionBadge } from "../components/ui/DecisionBadge";
 import { useLedgerGuard } from "../hooks/useLedgerGuard";
 import { useAuth } from "../hooks/useAuth";
+import { useAttackLabStore } from "../store/attackLabStore";
 
 export const AttackLab: React.FC = () => {
   const navigate = useNavigate();
@@ -55,6 +57,9 @@ export const AttackLab: React.FC = () => {
   const [bootstrapSuccess, setBootstrapSuccess] = useState<string | null>(null);
   const [confirmReset, setConfirmReset] = useState(false);
   const [runningScenario, setRunningScenario] = useState<string | null>(null);
+  
+  const { isRunnerActive, runnerMode, setRunnerActive } = useAttackLabStore();
+  const [menuOpen, setMenuOpen] = useState(false);
 
   // Tamper tools states
   const [selectedInferenceId, setSelectedInferenceId] = useState<string>("");
@@ -253,6 +258,7 @@ export const AttackLab: React.FC = () => {
       });
       setTargetStep(1);
       setRestoreStatus(null);
+      setRunnerActive(false, null);
       queryClient.invalidateQueries();
     } catch (e: any) {
       console.error("Bootstrap error", e);
@@ -337,6 +343,7 @@ export const AttackLab: React.FC = () => {
       });
       setTargetStep(1);
       setRestoreStatus(null);
+      setRunnerActive(false, null);
       queryClient.invalidateQueries();
     } catch (e: any) {
       setTamperFeedback(`Reset error: ${e.message}`);
@@ -576,6 +583,61 @@ export const AttackLab: React.FC = () => {
         return updated;
       });
     }
+  };
+
+  // Orchestrator Effect for sequential runner
+  useEffect(() => {
+    if (!isRunnerActive) return;
+
+    let active = true;
+
+    const runNext = async () => {
+      const currentStatus = stepProgress[targetStep]?.status;
+      
+      if (currentStatus === "running") return; // Already running
+
+      const allDone = [1, 2, 3, 4, 5, 6].every(
+        n => stepProgress[n]?.status === "done-pass" || stepProgress[n]?.status === "done-mismatch"
+      );
+
+      if (allDone) {
+        setRunnerActive(false, null);
+        return;
+      }
+
+      if (currentStatus !== "done-pass" && currentStatus !== "done-mismatch") {
+        await executeStep(targetStep);
+      }
+    };
+
+    runNext();
+
+    return () => {
+      active = false;
+    };
+  }, [stepProgress, targetStep, isRunnerActive, setRunnerActive]);
+
+  const handleExecuteRemaining = () => {
+    setRunnerActive(true, 'all-remaining');
+    setMenuOpen(false);
+  };
+
+  const handleRerunAll = () => {
+    try {
+      sessionStorage.removeItem(storageProgressKey);
+      sessionStorage.removeItem(storageTargetKey);
+    } catch {}
+    setStepProgress({
+      1: { status: "next" },
+      2: { status: "pending" },
+      3: { status: "pending" },
+      4: { status: "pending" },
+      5: { status: "pending" },
+      6: { status: "pending" },
+    });
+    setTargetStep(1);
+    setRunnerActive(true, 'rerun-all');
+    setMenuOpen(false);
   };
 
   const handleRestoreDemoEdits = async () => {
@@ -851,27 +913,77 @@ export const AttackLab: React.FC = () => {
             </strong>
           </div>
 
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => executeStep(targetStep)}
-              disabled={!canWrite || isRunningTarget}
-              title={canWrite ? `Execute Step ${targetStep}` : "Admin access required"}
-              className="px-4 py-2 rounded-xl bg-cyan-500/30 hover:bg-cyan-500/40 text-cyan-200 border border-cyan-500/50 flex items-center gap-2 transition-all font-bold disabled:opacity-40 disabled:cursor-not-allowed shadow-glow-cyan"
-            >
-              {isRunningTarget ? (
-                <>
-                  <Loader2 className="w-3.5 h-3.5 animate-spin text-cyan-400" />
-                  <span>Running…</span>
-                </>
-              ) : (
-                <>
-                  <span>
-                    Execute Step {targetStep}: {currentTargetDef.title} →
-                  </span>
-                  {!canWrite && <Lock className="w-3.5 h-3.5 text-slate-400" />}
-                </>
-              )}
-            </button>
+          <div className="flex items-center gap-2 relative">
+            <div className="flex rounded-xl shadow-glow-cyan overflow-visible z-10">
+              <button
+                onClick={() => {
+                  if (isRunnerActive) {
+                    setRunnerActive(false, null);
+                  } else {
+                    executeStep(targetStep);
+                  }
+                }}
+                disabled={!canWrite || (!isRunnerActive && isRunningTarget)}
+                title={canWrite ? (isRunnerActive ? "Stop Runner" : `Execute Step ${targetStep}`) : "Admin access required"}
+                className={`px-4 py-2 rounded-l-xl ${isRunnerActive ? 'bg-rose-500/30 hover:bg-rose-500/40 border-rose-500/50 text-rose-200' : 'bg-cyan-500/30 hover:bg-cyan-500/40 border-cyan-500/50 text-cyan-200'} border-y border-l flex items-center gap-2 transition-all font-bold disabled:opacity-40 disabled:cursor-not-allowed`}
+              >
+                {isRunningTarget && !isRunnerActive ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin text-cyan-400" />
+                    <span>Running…</span>
+                  </>
+                ) : isRunnerActive ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin text-rose-400" />
+                    <span>Stop Runner</span>
+                  </>
+                ) : (
+                  <>
+                    <span>
+                      Execute Step {targetStep}: {currentTargetDef.title} →
+                    </span>
+                    {!canWrite && <Lock className="w-3.5 h-3.5 text-slate-400" />}
+                  </>
+                )}
+              </button>
+              <div className="relative">
+                <button
+                  onClick={() => setMenuOpen(!menuOpen)}
+                  disabled={!canWrite || isRunnerActive}
+                  className={`px-2 py-2 rounded-r-xl bg-cyan-500/30 hover:bg-cyan-500/40 text-cyan-200 border border-cyan-500/50 flex items-center justify-center transition-all disabled:opacity-40 disabled:cursor-not-allowed h-full border-l-cyan-500/80`}
+                >
+                  <ChevronDown className={`w-4 h-4 transition-transform ${menuOpen ? 'rotate-180' : ''}`} />
+                </button>
+                {menuOpen && (
+                  <>
+                    <div 
+                      className="fixed inset-0 z-40" 
+                      onClick={() => setMenuOpen(false)}
+                    />
+                    <div className="absolute right-0 top-full mt-2 w-48 bg-slate-900 border border-cyan-500/30 rounded-xl shadow-glow-cyan overflow-hidden z-50">
+                      <button 
+                        onClick={() => { executeStep(targetStep); setMenuOpen(false); }}
+                        className="w-full text-left px-4 py-2.5 text-xs font-mono font-bold text-cyan-200 hover:bg-cyan-500/20 transition-colors border-b border-white/5"
+                      >
+                        Execute Step {targetStep}
+                      </button>
+                      <button 
+                        onClick={handleExecuteRemaining}
+                        className="w-full text-left px-4 py-2.5 text-xs font-mono font-bold text-cyan-200 hover:bg-cyan-500/20 transition-colors border-b border-white/5"
+                      >
+                        Execute all remaining
+                      </button>
+                      <button 
+                        onClick={handleRerunAll}
+                        className="w-full text-left px-4 py-2.5 text-xs font-mono font-bold text-cyan-200 hover:bg-cyan-500/20 transition-colors"
+                      >
+                        Re-run all 6 steps
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
           </div>
         </div>
 

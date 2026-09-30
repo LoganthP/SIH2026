@@ -94,7 +94,8 @@ def provenance_graph(job_id: str, db: Session = Depends(get_db)):
         if not any(n["id"] == nid for n in nodes):
             u = db.query(User).filter_by(username=username).first()
             node(nid, "user", (u.display_name if u else None) or username, "ok", username=username,
-                 role=u.role if u else ("cli" if username.startswith("local:") else "unknown"))
+                 role=u.role if u else ("cli" if username.startswith("local:") else "unknown"),
+                 avatar=u.avatar if u else None)
         ts = when.isoformat() if hasattr(when, "isoformat") else when
         edges.append({"id": f"{nid}->{target}:{verb}", "source": nid, "target": target,
                       "label": f"{verb} · {ts[:19].replace('T', ' ')} UTC" if ts else verb,

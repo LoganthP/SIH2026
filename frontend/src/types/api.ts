@@ -373,7 +373,7 @@ export interface SampleDetails {
     mode: string | null;
     source_modified_at: string | null;
     ingested_at: string | null;
-    uploaded_by: string | null;
+    uploaded_by: { username: string; display_name: string; role: string | null; kind: string } | null;
     contributor: string;
   };
   signatures: {
@@ -392,7 +392,7 @@ export interface SampleDetails {
   };
   security: {
     dataset_status: string;
-    uploaded_by: string | null;
+    uploaded_by: { username: string; display_name: string; role: string | null; kind: string } | null;
     ingested_at: string | null;
     visible_to_roles: string[];
     findings: {

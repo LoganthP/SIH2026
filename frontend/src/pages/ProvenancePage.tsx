@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useCallback } from "react";
+import React, { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -39,6 +39,7 @@ import { DecisionBadge } from "../components/ui/DecisionBadge";
 import { useGlobalEventsContext } from "../components/EventsProvider";
 import { useSystemStatus } from "../hooks/useSystemStatus";
 import { ErrorBoundary } from "../components/ui/ErrorBoundary";
+import { useAuth } from "../hooks/useAuth";
 
 const NODE_WIDTH = 220;
 const NODE_HEIGHT = 75;
@@ -105,6 +106,29 @@ const ProvenanceContent: React.FC = () => {
   const queryClient = useQueryClient();
   const { latestEvent } = useGlobalEventsContext();
   const { isCompromised } = useSystemStatus();
+  const { user } = useAuth();
+
+  const [showPeople, setShowPeople] = useState(true);
+  const [showOnlyMe, setShowOnlyMe] = useState(false);
+
+  const [legendOpen, setLegendOpen] = useState(() => localStorage.getItem("provenance-legend-open") === "true");
+  const legendRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    localStorage.setItem("provenance-legend-open", legendOpen.toString());
+  }, [legendOpen]);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (legendRef.current && !legendRef.current.contains(e.target as globalThis.Node)) {
+        setLegendOpen(false);
+      }
+    };
+    if (legendOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [legendOpen]);
 
   // Search & filter for job picker
   const [jobSearch, setJobSearch] = useState("");
@@ -160,14 +184,37 @@ const ProvenanceContent: React.FC = () => {
   const { initialNodes, initialEdges } = useMemo(() => {
     if (!graphData) return { initialNodes: [], initialEdges: [] };
 
+    const rawNodes: Node[] = graphData.nodes
+      .filter((n) => {
+        const isPerson = n.type === "user" || n.type === "contributor";
+        if (isPerson) {
+          if (!showPeople) return false;
+          if (showOnlyMe && user) {
+            const isMe = n.data?.username === user.username || n.data?.label === user.username;
+            if (!isMe) return false;
+          }
+        }
+        return true;
+      })
+      .map((n) => ({
+        id: n.id,
+        type: n.type,
+        data: n.data,
+        position: { x: 0, y: 0 },
+      }));
+
+    const validNodeIds = new Set(rawNodes.map((n) => n.id));
+
     const dangerNodeIds = new Set(
-      graphData.nodes
+      rawNodes
         .filter((n) => n.data.status === "danger")
         .map((n) => n.id)
     );
 
-    const edges: Edge[] = graphData.edges.map((e) => {
-      const isPathToDanger = dangerNodeIds.has(e.target);
+    const edges: Edge[] = graphData.edges
+      .filter((e) => validNodeIds.has(e.source) && validNodeIds.has(e.target))
+      .map((e) => {
+        const isPathToDanger = dangerNodeIds.has(e.target);
       // Animate ONLY while job is running, or on path to danger node
       const animated = isJobRunning || isPathToDanger;
 
@@ -221,16 +268,9 @@ const ProvenanceContent: React.FC = () => {
       };
     });
 
-    const rawNodes: Node[] = graphData.nodes.map((n) => ({
-      id: n.id,
-      type: n.type,
-      data: n.data,
-      position: { x: 0, y: 0 },
-    }));
-
     const layouted = layoutDagreGraph(rawNodes, edges);
     return { initialNodes: layouted.nodes, initialEdges: layouted.edges };
-  }, [graphData, isJobRunning]);
+  }, [graphData, isJobRunning, showPeople, showOnlyMe, user]);
 
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
@@ -422,6 +462,67 @@ const ProvenanceContent: React.FC = () => {
               className="!bg-slate-900/95 !border !border-white/10 !rounded-xl overflow-hidden"
               style={{ width: 160, height: 110 }}
             />
+            {/* Filters */}
+            <div className="absolute top-4 left-4 z-10 flex gap-2">
+              <button
+                onClick={() => setShowPeople(!showPeople)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition-colors border shadow-lg ${
+                  showPeople ? "bg-violet-500/20 text-violet-300 border-violet-500/40" : "bg-slate-900/80 text-slate-500 border-white/10 hover:text-slate-300"
+                }`}
+              >
+                {showPeople ? <Eye className="w-3.5 h-3.5 inline mr-1" /> : <EyeOff className="w-3.5 h-3.5 inline mr-1" />}
+                People
+              </button>
+              {showPeople && user && (
+                <button
+                  onClick={() => setShowOnlyMe(!showOnlyMe)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition-colors border shadow-lg ${
+                    showOnlyMe ? "bg-cyan-500/20 text-cyan-300 border-cyan-500/40" : "bg-slate-900/80 text-slate-500 border-white/10 hover:text-slate-300"
+                  }`}
+                >
+                  Only Me
+                </button>
+              )}
+            </div>
+            {/* Legend */}
+            <div 
+              ref={legendRef}
+              className={`absolute top-4 z-30 transition-all duration-300 ${selectedNodeData ? 'right-[420px]' : 'right-4'}`}
+            >
+              {legendOpen ? (
+                <div className="flex flex-col gap-2 p-3 rounded-xl bg-slate-900/95 border border-white/10 shadow-2xl backdrop-blur-md min-w-[180px]">
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="text-[10px] font-mono text-slate-500 font-bold uppercase tracking-wider">Legend</div>
+                    <button onClick={() => setLegendOpen(false)} className="text-slate-400 hover:text-white p-1 rounded-md hover:bg-white/5 transition-colors">
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs font-mono text-slate-300">
+                    <div className="w-3 h-3 rounded-full bg-violet-500/20 border border-violet-500/40"></div>
+                    <span>Platform User</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs font-mono text-slate-300">
+                    <div className="w-3 h-3 rounded-md bg-blue-500/20 border border-blue-500/40"></div>
+                    <span>External Contributor</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs font-mono text-slate-300">
+                    <div className="w-3 h-3 rounded-md bg-cyan-500/20 border border-cyan-500/40"></div>
+                    <span>Asset / Data</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs font-mono text-slate-300">
+                    <div className="w-3 h-3 rounded-md bg-rose-500/20 border border-rose-500/40"></div>
+                    <span>Compromised / Danger</span>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setLegendOpen(true)}
+                  className="px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition-colors border shadow-lg bg-slate-900/90 text-slate-400 border-white/10 hover:text-slate-200"
+                >
+                  Legend
+                </button>
+              )}
+            </div>
           </ReactFlow>
         ) : (
           <EmptyState

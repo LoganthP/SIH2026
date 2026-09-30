@@ -14,8 +14,6 @@ import { ArchitectureSection } from "./sections/ArchitectureSection";
 import { TechnologySection } from "./sections/TechnologySection";
 import { InnovationSection } from "./sections/InnovationSection";
 import { ImpactSection } from "./sections/ImpactSection";
-import { TeamSection } from "./sections/TeamSection";
-import { ClosingSection } from "./sections/ClosingSection";
 
 const SECTIONS = [
   { id: "hero", label: "00 / Hero" },
@@ -28,8 +26,6 @@ const SECTIONS = [
   { id: "technology", label: "07 / Technology" },
   { id: "innovation", label: "08 / Innovation" },
   { id: "impact", label: "09 / Impact" },
-  { id: "team", label: "10 / Our Team" },
-  { id: "closing", label: "11 / Closing" },
 ];
 
 export const LandingPage: React.FC = () => {
@@ -193,8 +189,8 @@ export const LandingPage: React.FC = () => {
         </div>
       )}
 
-      {/* All 12 Sections */}
-      <main className="relative z-10 w-full">
+      {/* All Sections */}
+      <main className="relative z-10 w-full pb-16 sm:pb-24">
         {/* 1. Hero */}
         <HeroSection onScrollTo={scrollToSection} />
 
@@ -224,12 +220,6 @@ export const LandingPage: React.FC = () => {
 
         {/* 10. 09 / Impact */}
         <ImpactSection />
-
-        {/* 11. 10 / Our Team */}
-        <TeamSection />
-
-        {/* 12. Closing Frame */}
-        <ClosingSection />
       </main>
     </div>
   );

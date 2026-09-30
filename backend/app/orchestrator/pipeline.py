@@ -44,8 +44,9 @@ _executor = ThreadPoolExecutor(max_workers=settings.job_workers, thread_name_pre
 class _Tracker:
     """Maps stage/engine progress onto one 0-100 bar and throttles DB writes."""
 
-    def __init__(self, job_id: str):
+    def __init__(self, job_id: str, actor: str | None = None):
         self.job_id = job_id
+        self.actor = actor
         self.engine_frac = {e: 0.0 for e in ENGINES}
         self.lock = threading.Lock()
 
@@ -54,14 +55,14 @@ class _Tracker:
             job = db.get(Job, self.job_id)
             job.stage, job.status, job.progress = stage, extra.pop("status", "RUNNING"), round(progress, 1)
             db.commit()
-        bus.publish(self.job_id, "stage", stage=stage, progress=round(progress, 1), message=message, **extra)
+        bus.publish(self.job_id, "stage", stage=stage, progress=round(progress, 1), message=message, actor=self.actor, **extra)
 
     def engine(self, engine: str, frac: float, message: str):
         with self.lock:
             self.engine_frac[engine] = frac
             overall = 35 + 50 * sum(self.engine_frac.values()) / len(self.engine_frac)
         bus.publish(self.job_id, "engine_progress", stage="PARALLEL_ANALYSIS", engine=engine,
-                    engine_progress=round(frac * 100, 1), progress=round(overall, 1), message=message)
+                    engine_progress=round(frac * 100, 1), progress=round(overall, 1), message=message, actor=self.actor)
 
 
 def submit_job(job_id: str) -> None:
@@ -74,11 +75,11 @@ def run_job(job_id: str) -> None:
         j = db.get(Job, job_id)
         who = j.created_by if j else None
     with acting_as(who):          # audit blocks of this job are attributed to whoever requested it
-        _run_job(job_id)
+        _run_job(job_id, who)
 
 
-def _run_job(job_id: str) -> None:
-    tr = _Tracker(job_id)
+def _run_job(job_id: str, actor: str | None = None) -> None:
+    tr = _Tracker(job_id, actor)
     try:
         _run(job_id, tr)
     except Exception as exc:  # noqa: BLE001
@@ -88,7 +89,7 @@ def _run_job(job_id: str) -> None:
             job.completed_at = utcnow()
             db.commit()
         bus.publish(job_id, "failed", stage="FAILED", progress=100, message=str(exc),
-                    trace=traceback.format_exc()[-1500:])
+                    trace=traceback.format_exc()[-1500:], actor=actor)
 
 
 def _run(job_id: str, tr: _Tracker) -> None:
@@ -157,7 +158,7 @@ def _run(job_id: str, tr: _Tracker) -> None:
                         duration_s=res.duration_s, error=res.error,
                         findings=[{"type": f.finding_type, "severity": f.severity, "title": f.title,
                                    "confidence": f.confidence} for f in res.findings],
-                        checks=[c.__dict__ for c in res.checks])
+                        checks=[c.__dict__ for c in res.checks], actor=tr.actor)
 
     tr.stage("FUSION", 87, "Fusing evidence across engines")
     fusion = fuse(results)
@@ -227,7 +228,7 @@ def _run(job_id: str, tr: _Tracker) -> None:
         db.commit()
     bus.publish(job_id, "complete", stage="COMPLETED", progress=100, decision=fusion["decision"],
                 risk_score=fusion["risk_score"], confidence=fusion["confidence"],
-                engine_scores=fusion["engine_scores"], audit_block=block.index)
+                engine_scores=fusion["engine_scores"], audit_block=block.index, actor=tr.actor)
 
 
 def verify_report(report: dict) -> bool:

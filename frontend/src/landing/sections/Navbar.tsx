@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { LANDING_CONTENT } from "../content";
-import { Shield, Tv, ArrowRight, UserCheck } from "lucide-react";
+import { Tv, ArrowRight, UserCheck } from "lucide-react";
 import { useAuth } from "../../hooks/useAuth";
 
 interface NavbarProps {
@@ -76,27 +76,7 @@ export const Navbar: React.FC<NavbarProps> = ({
       }`}
     >
       <div className="max-w-[1280px] mx-auto px-6 flex items-center justify-between">
-        {/* Left: JAI HIND Wordmark + Tricolour dot */}
-        <a
-          href="#hero"
-          onClick={(e) => handleNavClick(e, "hero")}
-          className="flex items-center gap-2.5 group cursor-pointer focus:outline-none"
-        >
-          <div className="w-8 h-8 rounded-lg bg-cyan-500/10 border border-cyan-400/30 flex items-center justify-center text-cyan-400 group-hover:border-cyan-400/60 transition-colors">
-            <Shield className="w-4 h-4 text-cyan-400" />
-          </div>
-          <div className="flex flex-col">
-            <div className="flex items-center gap-1.5 font-bold tracking-wider text-sm sm:text-base text-white">
-              <span>{LANDING_CONTENT.nav.brand}</span>
-              <span className="tricolor-dot" />
-            </div>
-            <span className="text-[10px] font-mono tracking-widest text-cyan-400/80 -mt-1 font-semibold">
-              {LANDING_CONTENT.nav.subBrand}
-            </span>
-          </div>
-        </a>
-
-        {/* Centre: Nav links */}
+        {/* Nav links */}
         <nav className="hidden lg:flex items-center gap-1 bg-white/[0.03] backdrop-blur-md px-3 py-1 rounded-full border border-white/10">
           {LANDING_CONTENT.nav.links.map((link) => {
             const isActive = activeSection === link.id;
@@ -118,7 +98,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         </nav>
 
         {/* Right: Actions */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 ml-auto lg:ml-0">
           {/* Presenter Mode Toggle Button */}
           <button
             onClick={onTogglePresenter}

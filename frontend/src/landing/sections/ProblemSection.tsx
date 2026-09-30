@@ -1,7 +1,7 @@
 import React from "react";
 import { LANDING_CONTENT } from "../content";
 import { TiltCard } from "../visuals/TiltCard";
-import { AlertTriangle, ShieldAlert, FileQuestion, Lock, Radio } from "lucide-react";
+import { AlertTriangle, ShieldAlert, FileQuestion, Radio } from "lucide-react";
 
 export const ProblemSection: React.FC = () => {
   const challengeIcons = [
@@ -37,9 +37,6 @@ export const ProblemSection: React.FC = () => {
               <p className="text-base sm:text-lg text-slate-200 leading-relaxed font-medium">
                 {LANDING_CONTENT.problem.theProblemBody}
               </p>
-              <div className="inline-block px-3 py-1 rounded bg-rose-950/40 border border-rose-500/20 text-rose-200/90 font-mono text-xs">
-                {LANDING_CONTENT.problem.problemStatementTag}
-              </div>
             </div>
 
             {/* Why It Matters */}

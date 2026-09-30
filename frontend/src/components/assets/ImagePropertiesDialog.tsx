@@ -46,7 +46,7 @@ export const ImagePropertiesDialog: React.FC<ImagePropertiesDialogProps> = ({
   const [copiedText, setCopiedText] = useState<string | null>(null);
 
   // Fetch full details
-  const { data: details, isLoading, isError } = useQuery({
+  const { data: details, isLoading, isError, error, refetch } = useQuery({
     queryKey: ["sampleDetails", datasetId, sampleId],
     queryFn: () => getSampleDetails(datasetId, sampleId),
     enabled: !!datasetId && !!sampleId,
@@ -213,18 +213,20 @@ export const ImagePropertiesDialog: React.FC<ImagePropertiesDialogProps> = ({
               <div className="flex items-center justify-between text-slate-400">
                 <span>Dimensions:</span>
                 <span className="text-white">
-                  {details ? `${details.general.width} × ${details.general.height}` : "..."}
+                  {isLoading ? "..." : details?.general.width ? `${details.general.width} × ${details.general.height}` : "Unknown"}
                 </span>
               </div>
               <div className="flex items-center justify-between text-slate-400">
                 <span>File Size:</span>
                 <span className="text-white">
-                  {details ? formatBytes(details.general.size_bytes) : "..."}
+                  {isLoading ? "..." : details?.general.size_bytes != null ? formatBytes(details.general.size_bytes) : "Unknown"}
                 </span>
               </div>
               <div className="flex items-center justify-between text-slate-400">
                 <span>Format:</span>
-                <span className="text-white">{details?.general.format || "Not recorded"}</span>
+                <span className="text-white">
+                  {isLoading ? "..." : details?.general.format || "Unknown"}
+                </span>
               </div>
             </div>
           </div>
@@ -236,8 +238,16 @@ export const ImagePropertiesDialog: React.FC<ImagePropertiesDialogProps> = ({
                 Reading cryptographic metadata and signatures...
               </div>
             ) : isError || !details ? (
-              <div className="py-20 text-center text-rose-400">
-                Failed to load sample details.
+              <div className="py-20 text-center flex flex-col items-center justify-center gap-3">
+                <div className="text-rose-400">
+                  {error instanceof Error ? error.message : "Failed to load sample details."}
+                </div>
+                <button
+                  onClick={() => refetch()}
+                  className="px-4 py-1.5 bg-slate-800 hover:bg-slate-700 text-sm font-medium rounded-lg transition-colors text-white"
+                >
+                  Retry
+                </button>
               </div>
             ) : (
               <div className="space-y-4">
@@ -326,7 +336,7 @@ export const ImagePropertiesDialog: React.FC<ImagePropertiesDialogProps> = ({
                       <span className="text-slate-400">Uploaded By:</span>
                       <span className="col-span-2 flex items-center gap-1.5 text-cyan-300">
                         <UserIcon className="w-3.5 h-3.5 text-cyan-400" />
-                        <span>@{details.general.uploaded_by || "system"}</span>
+                        <span>@{details.general.uploaded_by?.username || "system"}</span>
                       </span>
                     </div>
 
@@ -493,7 +503,7 @@ export const ImagePropertiesDialog: React.FC<ImagePropertiesDialogProps> = ({
                       </div>
                       <div className="p-3 bg-white/[0.02] border border-white/5 rounded-xl">
                         <span className="text-slate-400 block mb-1">Uploaded By:</span>
-                        <span className="text-white font-bold">@{details.security.uploaded_by || "system"}</span>
+                        <span className="text-white font-bold">@{details.security.uploaded_by?.username || "system"}</span>
                       </div>
                     </div>
 

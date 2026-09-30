@@ -11,7 +11,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from .api import assets, auth, benchmarks, demo, jobs, ml, provenance, system, workspace, ws
+from .api import assets, auth, benchmarks, demo, jobs, ml, provenance, system, workspace, ws, sample_details
 from .auth.middleware import AuthMiddleware
 from .config import settings
 from .core.events import bus
@@ -41,7 +41,7 @@ app.add_middleware(CORSMiddleware, allow_origins=settings.cors_origins,
                    allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$",
                    allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 for r in (auth.router, system.router, assets.router, jobs.router, provenance.router, demo.router,
-          benchmarks.router, ml.router, workspace.router, ws.router):
+          benchmarks.router, ml.router, workspace.router, ws.router, sample_details.router):
     app.include_router(r)
 
 

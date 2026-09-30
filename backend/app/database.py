@@ -228,6 +228,7 @@ class User(Base):
     disabled: Mapped[bool] = mapped_column(Boolean, default=False)
     failed_logins: Mapped[int] = mapped_column(Integer, default=0)
     locked_until: Mapped[Optional[datetime]] = mapped_column(nullable=True)
+    avatar: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     created_at: Mapped[datetime] = mapped_column(default=utcnow)
     created_by: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     last_login_at: Mapped[Optional[datetime]] = mapped_column(nullable=True)
@@ -271,6 +272,7 @@ _MIGRATIONS = [
     ("users", "role_request", "VARCHAR"),
     ("users", "role_request_note", "TEXT"),
     ("users", "role_request_at", "DATETIME"),
+    ("users", "avatar", "VARCHAR"),
     ("dataset_samples", "source_meta", "JSON"),
 ]
 

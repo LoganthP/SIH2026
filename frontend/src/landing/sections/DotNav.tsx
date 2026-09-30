@@ -1,5 +1,4 @@
 import React from "react";
-import { LANDING_CONTENT } from "../content";
 
 interface DotNavProps {
   sections: { id: string; label: string }[];

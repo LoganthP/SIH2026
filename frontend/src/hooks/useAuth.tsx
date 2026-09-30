@@ -4,6 +4,15 @@ import { MeResponse, Permissions, User } from "../types/api";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { clearAuthToken, getAuthToken } from "../api/client";
 
+function clearAttackLabSession() {
+  Object.keys(sessionStorage).forEach((key) => {
+    if (key.startsWith("tejas_attack_lab_")) {
+      sessionStorage.removeItem(key);
+    }
+  });
+  localStorage.removeItem("tejas-attack-lab-storage");
+}
+
 interface AuthContextType {
   user: User | null;
   role: "admin" | "operator" | "client" | "user" | null;
@@ -31,6 +40,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       } catch (err: any) {
         if (err.status === 401) {
           clearAuthToken();
+          clearAttackLabSession();
           return null as any;
         }
         throw err;
@@ -48,6 +58,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.error("Logout error", err);
     }
     clearAuthToken();
+    clearAttackLabSession();
     queryClient.clear();
     window.location.href = "/login";
   };

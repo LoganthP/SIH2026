@@ -101,7 +101,11 @@ export const UserNode: React.FC<NodeProps<any>> = ({ data }) => {
               : "bg-cyan-500/20 text-cyan-300 border-cyan-500/40"
           }`}
         >
-          <User className="w-4 h-4" />
+          {data.avatar ? (
+            <img src={data.avatar} alt={displayName} className="w-full h-full rounded-full object-cover" />
+          ) : (
+            <User className="w-4 h-4" />
+          )}
         </div>
         <div className="overflow-hidden min-w-0 flex-1">
           <div className="font-mono text-xs font-bold text-slate-100 truncate">

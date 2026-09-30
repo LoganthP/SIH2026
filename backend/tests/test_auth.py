@@ -259,7 +259,8 @@ def test_user_can_use_but_not_change(clients, demo_state):
 def test_mutating_routes_default_to_admin():
     """Every POST/PATCH/PUT/DELETE route is admin-only unless deliberately listed here."""
     client_allowed = {"/api/jobs", "/api/inference", "/api/inference/verify-chain", "/api/inference/attest",
-                      "/api/audit/verify", "/api/system/verify-independent", "/api/auth/logout", "/api/auth/password"}
+                      "/api/audit/verify", "/api/system/verify-independent", "/api/auth/logout", "/api/auth/password",
+                      "/api/auth/me", "/api/auth/me/role-request"}
     operator_allowed = {"/api/assets/datasets", "/api/assets/models", "/api/baselines",
                         "/api/ml/train", "/api/benchmarks/runs", "/api/benchmarks/attacks"}
     public = {"/api/auth/login", "/api/auth/signup"}
@@ -271,7 +272,7 @@ def test_mutating_routes_default_to_admin():
                 expected = "public"
             elif path in client_allowed:
                 expected = "client"
-            elif path in operator_allowed or path.startswith("/api/benchmarks/import/"):
+            elif path in operator_allowed or path.startswith("/api/benchmarks/import/") or path.startswith("/api/workspace/test-packs/"):
                 expected = "operator"
             else:
                 expected = "admin"
