@@ -105,7 +105,11 @@ const RootHandler: React.FC = () => {
   if (isLoading) return null;
 
   if (!user) {
-    if (location.pathname === "/" || location.pathname === "/welcome") {
+    if (
+      location.pathname === "/" ||
+      location.pathname === "/welcome" ||
+      location.pathname === "/landing"
+    ) {
       return <LandingPage />;
     }
     return <Navigate to="/login" replace />;
@@ -130,6 +134,7 @@ export function App() {
             <Suspense fallback={<PageLoadingFallback />}>
               <Routes>
                 <Route path="/welcome" element={<LandingPage />} />
+                <Route path="/landing" element={<LandingPage />} />
                 <Route path="/login" element={<LoginPage />} />
                 <Route path="/signup" element={<SignupPage />} />
 

@@ -2,7 +2,7 @@ import React, { createContext, useContext } from "react";
 import { getMe, logout as apiLogout } from "../api/endpoints";
 import { MeResponse, Permissions, User } from "../types/api";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { clearAuthToken } from "../api/client";
+import { clearAuthToken, getAuthToken } from "../api/client";
 
 interface AuthContextType {
   user: User | null;
@@ -22,6 +22,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const { data, isLoading, isError, refetch } = useQuery<MeResponse>({
     queryKey: ["authMe"],
     queryFn: async () => {
+      const token = getAuthToken();
+      if (!token) {
+        return null as any;
+      }
       try {
         return await getMe();
       } catch (err: any) {

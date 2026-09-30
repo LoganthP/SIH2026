@@ -157,7 +157,22 @@ export async function request<T>(
       if (!endpoint.includes("/api/auth/login") && !endpoint.includes("/api/auth/signup")) {
         clearAuthToken();
       }
-      if (typeof window !== "undefined" && !window.location.pathname.startsWith("/login") && !window.location.pathname.startsWith("/signup")) {
+      
+      const isPublicPath =
+        typeof window !== "undefined" &&
+        (window.location.pathname === "/" ||
+          window.location.pathname.startsWith("/welcome") ||
+          window.location.pathname.startsWith("/landing") ||
+          window.location.pathname.startsWith("/login") ||
+          window.location.pathname.startsWith("/signup"));
+
+      const isAuthCheckEndpoint =
+        endpoint.includes("/api/auth/me") ||
+        endpoint.includes("/api/auth/status") ||
+        endpoint.includes("/api/auth/login") ||
+        endpoint.includes("/api/auth/signup");
+
+      if (typeof window !== "undefined" && !isPublicPath && !isAuthCheckEndpoint) {
         sessionStorage.setItem("redirect_after_login", window.location.pathname + window.location.search);
         window.location.href = "/login";
       }

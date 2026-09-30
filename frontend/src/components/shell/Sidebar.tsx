@@ -16,7 +16,8 @@ import {
   BarChart2,
   Lock,
   Workflow,
-  Users
+  Users,
+  Sparkles
 } from "lucide-react";
 import { useAuth } from "../../hooks/useAuth";
 import { getRequests } from "../../api/endpoints";
@@ -122,6 +123,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
       icon: Users,
       badge: pendingCount > 0 ? String(pendingCount) : null,
       adminOnly: true,
+    },
+    {
+      to: "/welcome",
+      label: "Landing Showcase",
+      icon: Sparkles,
+      badge: "DECK",
+      adminOnly: false,
     },
     {
       to: "/settings",

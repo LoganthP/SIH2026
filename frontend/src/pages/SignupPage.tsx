@@ -95,15 +95,15 @@ export const SignupPage: React.FC = () => {
     <div className="min-h-screen w-full bg-bg-dark text-slate-100 bg-grid-pattern overflow-y-auto py-6 sm:py-10 px-4 flex flex-col items-center justify-start">
       {/* Top Brand Bar */}
       <div className="w-full max-w-lg flex items-center justify-between mb-4 px-1">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center shadow-glow-cyan">
+        <Link to="/welcome" className="flex items-center gap-3 group focus:outline-none" title="Back to Platform Overview">
+          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center shadow-glow-cyan group-hover:scale-105 transition-transform">
             <ShieldAlert className="w-4 h-4 text-white" />
           </div>
           <div className="flex flex-col">
-            <span className="font-mono font-bold text-lg text-white tracking-wider leading-none">TEJAS-CV</span>
+            <span className="font-mono font-bold text-lg text-white tracking-wider leading-none group-hover:text-cyan-300 transition-colors">TEJAS-CV</span>
             <span className="text-[10px] text-cyan-400 font-mono tracking-widest uppercase">Assurance Core</span>
           </div>
-        </div>
+        </Link>
         <div className="px-2.5 py-1 rounded-full bg-rose-500/10 text-rose-400 border border-rose-500/20 text-[10px] font-mono font-bold tracking-widest uppercase flex items-center gap-1.5">
           <div className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
           AIR-GAPPED
@@ -327,9 +327,12 @@ export const SignupPage: React.FC = () => {
           </button>
         </form>
 
-        <div className="mt-4 text-center">
+        <div className="mt-4 pt-4 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-2 text-center">
+          <Link to="/welcome" className="text-xs font-mono text-slate-400 hover:text-cyan-400 transition-colors flex items-center gap-1.5">
+            <span>&larr;</span> Back to Platform Overview
+          </Link>
           <Link to="/login" className="text-xs font-mono text-slate-400 hover:text-cyan-400 transition-colors">
-            Already have an approved account? <span className="text-cyan-400 underline decoration-cyan-500/40 underline-offset-2">Sign in</span>
+            Already approved? <span className="text-cyan-400 underline decoration-cyan-500/40 underline-offset-2">Sign in</span>
           </Link>
         </div>
       </div>
