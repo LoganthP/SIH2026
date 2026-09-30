@@ -1,5 +1,5 @@
 import React, { useState, Suspense, lazy } from "react";
-import { BrowserRouter, Routes, Route, Navigate, Outlet } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, Outlet, useLocation } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { TopBar } from "./components/shell/TopBar";
 import { Sidebar } from "./components/shell/Sidebar";
@@ -12,6 +12,7 @@ import { AuthProvider, useAuth } from "./hooks/useAuth";
 import { EventsProvider } from "./components/EventsProvider";
 
 // Lazy-loaded pages
+const LandingPage = lazy(() => import("./landing/LandingPage").then((m) => ({ default: m.LandingPage })));
 const Dashboard = lazy(() => import("./pages/Dashboard").then((m) => ({ default: m.Dashboard })));
 const LivePipeline = lazy(() => import("./pages/LivePipeline").then((m) => ({ default: m.LivePipeline })));
 const AttackLab = lazy(() => import("./pages/AttackLab").then((m) => ({ default: m.AttackLab })));
@@ -97,6 +98,22 @@ const MainLayout: React.FC = () => {
   );
 };
 
+const RootHandler: React.FC = () => {
+  const { user, isLoading } = useAuth();
+  const location = useLocation();
+
+  if (isLoading) return null;
+
+  if (!user) {
+    if (location.pathname === "/" || location.pathname === "/welcome") {
+      return <LandingPage />;
+    }
+    return <Navigate to="/login" replace />;
+  }
+
+  return <MainLayout />;
+};
+
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, isLoading } = useAuth();
   if (isLoading) return null;
@@ -112,10 +129,11 @@ export function App() {
           <EventsProvider>
             <Suspense fallback={<PageLoadingFallback />}>
               <Routes>
+                <Route path="/welcome" element={<LandingPage />} />
                 <Route path="/login" element={<LoginPage />} />
                 <Route path="/signup" element={<SignupPage />} />
 
-                <Route path="/" element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>
+                <Route path="/" element={<RootHandler />}>
                   <Route index element={<Dashboard />} />
                   <Route path="workspace" element={<WorkspacePage />} />
                   <Route path="admin" element={<AdminConsolePage />} />
