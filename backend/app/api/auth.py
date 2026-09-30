@@ -11,6 +11,7 @@ creates a pending request; an administrator must approve it and assign a role.
 """
 from __future__ import annotations
 
+import re
 from datetime import timedelta
 from typing import Literal, Optional
 
@@ -26,6 +27,19 @@ from ..core.ledger import append_block
 from ..database import AuthSession, User, get_db
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
+
+EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+
+def _validate_email(val: Optional[str]) -> str | None:
+    if val is None:
+        return None
+    val = val.strip()
+    if not val:
+        return ""
+    if not EMAIL_RE.match(val):
+        raise HTTPException(400, "invalid email address format")
+    return val
 
 
 class SignupIn(BaseModel):
@@ -54,6 +68,8 @@ class UpdateUserIn(BaseModel):
     role: Optional[Literal["admin", "operator", "client", "user"]] = None
     disabled: Optional[bool] = None
     display_name: Optional[str] = None
+    email: Optional[str] = None
+    unit: Optional[str] = None
 
 
 class ResetPasswordIn(BaseModel):
@@ -69,6 +85,16 @@ class RejectRequestIn(BaseModel):
     note: Optional[str] = None
 
 
+class RoleRequestIn(BaseModel):
+    role: Literal["admin", "operator", "client"]
+    note: Optional[str] = None
+
+
+class RoleChangeDecisionIn(BaseModel):
+    role: Optional[Literal["admin", "operator", "client"]] = None
+    note: Optional[str] = None
+
+
 def public_user(u: User) -> dict:
     return {
         "id": u.id,
@@ -81,6 +107,11 @@ def public_user(u: User) -> dict:
         "reviewed_by": getattr(u, "reviewed_by", None),
         "reviewed_at": u.reviewed_at.isoformat() if getattr(u, "reviewed_at", None) else None,
         "review_note": getattr(u, "review_note", None),
+        "email": getattr(u, "email", None),
+        "unit": getattr(u, "unit", None),
+        "role_request": getattr(u, "role_request", None),
+        "role_request_note": getattr(u, "role_request_note", None),
+        "role_request_at": u.role_request_at.isoformat() if getattr(u, "role_request_at", None) else None,
         "disabled": u.disabled,
         "created_at": u.created_at.isoformat() if u.created_at else None,
         "created_by": u.created_by,
@@ -245,6 +276,90 @@ def me(request: Request, db: Session = Depends(get_db)):
     return public_user(u)
 
 
+class EditProfileIn(BaseModel):
+    display_name: Optional[str] = None
+    email: Optional[str] = None
+    unit: Optional[str] = None
+
+
+@router.patch("/me", summary="Edit your own profile (display name, email, unit)")
+def edit_profile(body: EditProfileIn, request: Request, db: Session = Depends(get_db)):
+    u = db.get(User, current_user(request)["id"])
+    if u is None:
+        raise HTTPException(404, "user not found")
+    changes = {}
+    if body.display_name is not None:
+        val = body.display_name.strip()
+        if not (1 <= len(val) <= 64):
+            raise HTTPException(400, "display name must be 1-64 characters")
+        if val != u.display_name:
+            changes["display_name"] = [u.display_name, val]
+            u.display_name = val
+    if body.email is not None:
+        val = _validate_email(body.email)
+        if val != u.email:
+            changes["email"] = [u.email, val]
+            u.email = val
+    if body.unit is not None:
+        val = body.unit.strip()
+        if len(val) > 64:
+            raise HTTPException(400, "unit must be 64 characters or fewer")
+        if val != u.unit:
+            changes["unit"] = [u.unit, val]
+            u.unit = val
+    db.commit()
+    db.refresh(u)
+    if changes:
+        with acting_as(u.username):
+            append_block(db, "PROFILE_UPDATED", u.id, {
+                "user_id": u.id, "username": u.username, "changes": changes
+            })
+    return public_user(u)
+
+
+@router.post("/me/role-request", summary="Request a role change")
+def request_role_change(body: RoleRequestIn, request: Request, db: Session = Depends(get_db)):
+    u = db.get(User, current_user(request)["id"])
+    if u is None:
+        raise HTTPException(404, "user not found")
+    if body.role == u.role:
+        raise HTTPException(400, f"cannot request the role you already hold ({u.role})")
+    if getattr(u, "role_request", None):
+        raise HTTPException(409, "you already have an open role change request")
+    u.role_request = body.role
+    u.role_request_note = body.note
+    u.role_request_at = now()
+    db.commit()
+    with acting_as(u.username):
+        append_block(db, "ROLE_CHANGE_REQUESTED", u.id, {
+            "user_id": u.id,
+            "username": u.username,
+            "current_role": u.role,
+            "requested_role": body.role,
+            "note": body.note,
+        })
+    return public_user(u)
+
+
+@router.delete("/me/role-request", summary="Withdraw your open role change request")
+def cancel_role_request(request: Request, db: Session = Depends(get_db)):
+    u = db.get(User, current_user(request)["id"])
+    if u is None:
+        raise HTTPException(404, "user not found")
+    if not getattr(u, "role_request", None):
+        raise HTTPException(400, "no open role request to withdraw")
+    req_role = u.role_request
+    u.role_request = None
+    u.role_request_note = None
+    u.role_request_at = None
+    db.commit()
+    with acting_as(u.username):
+        append_block(db, "ROLE_CHANGE_WITHDRAWN", u.id, {
+            "user_id": u.id, "username": u.username, "requested_role": req_role,
+        })
+    return public_user(u)
+
+
 @router.post("/password", summary="Change your own password (ends your other sessions)")
 def change_password(body: PasswordIn, request: Request, db: Session = Depends(get_db)):
     u = db.get(User, current_user(request)["id"])
@@ -261,12 +376,44 @@ def change_password(body: PasswordIn, request: Request, db: Session = Depends(ge
 
 
 # ----------------------------------------------------------------------------- admin only
-@router.get("/requests", summary="(admin) list access requests")
+@router.get("/requests", summary="(admin) list access and role-change requests")
 def list_requests(status: Optional[str] = "pending", db: Session = Depends(get_db)):
-    q = db.query(User)
+    q_access = db.query(User)
     if status:
-        q = q.filter(User.status == status)
-    return [public_user(u) for u in q.order_by(User.created_at.desc())]
+        q_access = q_access.filter(User.status == status)
+    access_users = q_access.order_by(User.created_at.desc()).all()
+
+    results = []
+    for u in access_users:
+        item = public_user(u)
+        item.update({
+            "type": "access",
+            "current_role": None,
+            "requested_role": u.requested_role or "client",
+            "note": u.request_note,
+            "requested_at": u.created_at.isoformat() if u.created_at else None,
+        })
+        results.append(item)
+
+    if status in (None, "pending"):
+        role_reqs = db.query(User).filter(
+            User.status == "active",
+            User.role_request.isnot(None),
+            User.role_request != ""
+        ).order_by(User.role_request_at.desc()).all()
+        for u in role_reqs:
+            item = public_user(u)
+            item.update({
+                "type": "role_change",
+                "current_role": u.role,
+                "requested_role": u.role_request,
+                "note": u.role_request_note,
+                "requested_at": u.role_request_at.isoformat() if u.role_request_at else (u.created_at.isoformat() if u.created_at else None),
+            })
+            results.append(item)
+
+    results.sort(key=lambda x: x.get("requested_at") or "", reverse=True)
+    return results
 
 
 @router.post("/requests/{user_id}/approve", summary="(admin) approve an access request")
@@ -317,6 +464,66 @@ def reject_request(user_id: str, body: RejectRequestIn, request: Request, db: Se
     return public_user(u)
 
 
+@router.post("/role-requests/{user_id}/approve", summary="(admin) approve a role change request")
+def approve_role_request(user_id: str, body: Optional[RoleChangeDecisionIn] = None, request: Request = None, db: Session = Depends(get_db)):
+    u = db.get(User, user_id)
+    if u is None:
+        raise HTTPException(404, "user not found")
+    if not getattr(u, "role_request", None):
+        raise HTTPException(400, "user does not have an open role change request")
+    admin_name = current_user(request)["username"]
+    granted_role = (body.role if (body and body.role) else u.role_request)
+    if granted_role not in ("admin", "operator", "client"):
+        raise HTTPException(400, "invalid role specified")
+    old_role = u.role
+    requested_role = u.role_request
+    note = body.note if body else None
+
+    u.role = granted_role
+    u.role_request = None
+    u.role_request_note = None
+    u.role_request_at = None
+    db.commit()
+    with acting_as(admin_name):
+        append_block(db, "ROLE_CHANGE_APPROVED", u.id, {
+            "user_id": u.id,
+            "username": u.username,
+            "old_role": old_role,
+            "new_role": granted_role,
+            "requested_role": requested_role,
+            "admin": admin_name,
+            "note": note,
+        })
+    return public_user(u)
+
+
+@router.post("/role-requests/{user_id}/reject", summary="(admin) reject a role change request")
+def reject_role_request(user_id: str, body: Optional[RoleChangeDecisionIn] = None, request: Request = None, db: Session = Depends(get_db)):
+    u = db.get(User, user_id)
+    if u is None:
+        raise HTTPException(404, "user not found")
+    if not getattr(u, "role_request", None):
+        raise HTTPException(400, "user does not have an open role change request")
+    admin_name = current_user(request)["username"]
+    requested_role = u.role_request
+    note = body.note if body else None
+
+    u.role_request = None
+    u.role_request_note = None
+    u.role_request_at = None
+    db.commit()
+    with acting_as(admin_name):
+        append_block(db, "ROLE_CHANGE_REJECTED", u.id, {
+            "user_id": u.id,
+            "username": u.username,
+            "current_role": u.role,
+            "requested_role": requested_role,
+            "admin": admin_name,
+            "note": note,
+        })
+    return public_user(u)
+
+
 @router.get("/users", summary="(admin) list accounts")
 def list_users(db: Session = Depends(get_db)):
     return [public_user(u) for u in db.query(User).order_by(User.created_at)]
@@ -340,7 +547,7 @@ def create_user(body: CreateUserIn, request: Request, db: Session = Depends(get_
     return public_user(u)
 
 
-@router.patch("/users/{user_id}", summary="(admin) change role, enable/disable, rename")
+@router.patch("/users/{user_id}", summary="(admin) change role, enable/disable, rename, email, unit")
 def update_user(user_id: str, body: UpdateUserIn, request: Request, db: Session = Depends(get_db)):
     u = db.get(User, user_id)
     if u is None:
@@ -368,7 +575,25 @@ def update_user(user_id: str, body: UpdateUserIn, request: Request, db: Session 
         if body.disabled:
             db.query(AuthSession).filter_by(user_id=u.id).update({"revoked": True})
     if body.display_name is not None:
-        u.display_name = body.display_name
+        name = body.display_name.strip()
+        if not (1 <= len(name) <= 64):
+            raise HTTPException(400, "display name must be 1-64 characters")
+        if name != u.display_name:
+            changes["display_name"] = [u.display_name, name]
+            u.display_name = name
+    if body.email is not None:
+        v_email = _validate_email(body.email)
+        if v_email != u.email:
+            changes["email"] = [u.email, v_email]
+            u.email = v_email
+    if body.unit is not None:
+        unit = body.unit.strip()
+        if len(unit) > 64:
+            raise HTTPException(400, "unit must be 64 characters or fewer")
+        if unit != u.unit:
+            changes["unit"] = [u.unit, unit]
+            u.unit = unit
+
     db.commit()
     if changes:
         append_block(db, "USER_UPDATED", u.id, {"user_id": u.id, "username": u.username, "changes": changes, "actor": me_["username"]})

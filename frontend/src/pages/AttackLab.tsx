@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import { useNavigate, Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Flame,
@@ -30,6 +30,11 @@ import {
   listInference,
   getAuditBlocks,
   listJobs,
+  getJob,
+  verifyAuditChain,
+  getDemoTampers,
+  restoreAuditBlock,
+  restoreInferenceRecord,
   trainMlModel,
   PoisonSpec
 } from "../api/endpoints";
@@ -67,8 +72,122 @@ export const AttackLab: React.FC = () => {
   const [trainingError, setTrainingError] = useState<string | null>(null);
   const [trainingModelId, setTrainingModelId] = useState<string | null>(null);
 
-  // Demo flow current step
-  const [demoStep, setDemoStep] = useState<number>(1);
+  // Step Progress State Machine
+  const { data: bootstrapData } = useQuery({
+    queryKey: ["demoBootstrap"],
+    queryFn: () => bootstrapLab(false),
+    staleTime: 60000,
+  });
+
+  const baselineKey = bootstrapData?.baseline || "default";
+  const storageProgressKey = `tejas_attack_lab_progress_${baselineKey}`;
+  const storageTargetKey = `tejas_attack_lab_target_${baselineKey}`;
+
+  const [stepProgress, setStepProgress] = useState<Record<number, {
+    status: "pending" | "next" | "running" | "done-pass" | "done-mismatch";
+    job_id?: string;
+    decision?: string;
+    risk_score?: number;
+    resultChip?: string;
+    mismatchInfo?: string;
+  }>>(() => {
+    try {
+      const raw = sessionStorage.getItem(`tejas_attack_lab_progress_${bootstrapData?.baseline || "default"}`);
+      if (raw) return JSON.parse(raw);
+    } catch {}
+    return {
+      1: { status: "next" },
+      2: { status: "pending" },
+      3: { status: "pending" },
+      4: { status: "pending" },
+      5: { status: "pending" },
+      6: { status: "pending" },
+    };
+  });
+
+  const [targetStep, setTargetStep] = useState<number>(() => {
+    try {
+      const raw = sessionStorage.getItem(`tejas_attack_lab_target_${bootstrapData?.baseline || "default"}`);
+      if (raw) {
+        const val = Number(raw);
+        if (val >= 1 && val <= 6) return val;
+      }
+    } catch {}
+    return 1;
+  });
+
+  const [restoringLedger, setRestoringLedger] = useState(false);
+  const [restoreStatus, setRestoreStatus] = useState<string | null>(null);
+
+  // Sync state whenever bootstrapData changes (if baseline becomes available)
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem(storageProgressKey);
+      if (raw) {
+        setStepProgress(JSON.parse(raw));
+      }
+      const rawTarget = sessionStorage.getItem(storageTargetKey);
+      if (rawTarget) {
+        setTargetStep(Number(rawTarget));
+      }
+    } catch {}
+  }, [storageProgressKey, storageTargetKey]);
+
+  // Recover mid-step state from GET /api/jobs/{id} if backend was restarted or page reloaded mid-step
+  useEffect(() => {
+    let active = true;
+    const checkRunning = async () => {
+      let updated = false;
+      const copy = { ...stepProgress };
+      const STEP_EXPECTS: Record<number, string> = {
+        1: "ACCEPT",
+        2: "QUARANTINE",
+        3: "QUARANTINE",
+        4: "QUARANTINE",
+        5: "REVIEW",
+        6: "VALID_FALSE",
+      };
+
+      for (let i = 1; i <= 6; i++) {
+        const rec = copy[i];
+        if (rec?.status === "running" && rec.job_id) {
+          try {
+            const j = await getJob(rec.job_id);
+            const expected = STEP_EXPECTS[i];
+            if (j.status === "COMPLETED") {
+              const pass = j.decision === expected;
+              copy[i] = {
+                status: pass ? "done-pass" : "done-mismatch",
+                job_id: j.id,
+                decision: j.decision || undefined,
+                risk_score: j.risk_score ?? undefined,
+                resultChip: `${j.decision} · risk ${j.risk_score ?? 0}`,
+                mismatchInfo: pass ? undefined : `expected ${expected}, got ${j.decision}`,
+              };
+              updated = true;
+            } else if (j.status === "FAILED") {
+              copy[i] = {
+                status: "done-mismatch",
+                job_id: j.id,
+                mismatchInfo: `Job failed: ${j.error || "unknown"}`,
+              };
+              updated = true;
+            }
+          } catch {}
+        }
+      }
+      if (updated && active) {
+        setStepProgress(copy);
+        try {
+          sessionStorage.setItem(storageProgressKey, JSON.stringify(copy));
+        } catch {}
+      }
+    };
+    checkRunning();
+    return () => {
+      active = false;
+    };
+  }, [storageProgressKey]);
 
   // 1. Fetch Scenarios
   const { data: scenarios, isLoading: loadingScenarios } = useQuery({
@@ -119,6 +238,21 @@ export const AttackLab: React.FC = () => {
       setBootstrapSuccess(null);
       await bootstrapLab(force);
       setBootstrapSuccess("Attack lab initialized: datasets, baseline features, and synthetic models generated!");
+      // Clear step progress on new initialization
+      try {
+        sessionStorage.removeItem(storageProgressKey);
+        sessionStorage.removeItem(storageTargetKey);
+      } catch {}
+      setStepProgress({
+        1: { status: "next" },
+        2: { status: "pending" },
+        3: { status: "pending" },
+        4: { status: "pending" },
+        5: { status: "pending" },
+        6: { status: "pending" },
+      });
+      setTargetStep(1);
+      setRestoreStatus(null);
       queryClient.invalidateQueries();
     } catch (e: any) {
       console.error("Bootstrap error", e);
@@ -132,7 +266,7 @@ export const AttackLab: React.FC = () => {
     try {
       setRunningScenario(name);
       const res = await runScenario(name);
-      if (nextStepTarget) setDemoStep(nextStepTarget);
+      if (nextStepTarget) setTargetStep(nextStepTarget);
       navigate(`/jobs/${res.job.id}`);
     } catch (e) {
       console.error("Failed to run scenario", e);
@@ -188,6 +322,21 @@ export const AttackLab: React.FC = () => {
       await resetLab();
       setConfirmReset(false);
       setTamperFeedback("Lab wiped cleanly and genesis audit block restored.");
+      // Clear progress on reset
+      try {
+        sessionStorage.removeItem(storageProgressKey);
+        sessionStorage.removeItem(storageTargetKey);
+      } catch {}
+      setStepProgress({
+        1: { status: "next" },
+        2: { status: "pending" },
+        3: { status: "pending" },
+        4: { status: "pending" },
+        5: { status: "pending" },
+        6: { status: "pending" },
+      });
+      setTargetStep(1);
+      setRestoreStatus(null);
       queryClient.invalidateQueries();
     } catch (e: any) {
       setTamperFeedback(`Reset error: ${e.message}`);
@@ -244,45 +393,227 @@ export const AttackLab: React.FC = () => {
     }
   };
 
-  // Demo sequence steps definition
-  const demoSteps = [
+  // Step Definitions for the 6-step evaluation state machine
+  const STEP_DEFINITIONS = [
     {
       num: 1,
-      title: "Step 1: Clean Baseline",
+      title: "Clean Baseline",
       scenario: "clean",
+      expect: "ACCEPT",
       desc: "Run clean pipeline → all engines pass → ACCEPT.",
     },
     {
       num: 2,
-      title: "Step 2: Model Trojan / Substitution",
+      title: "Model Trojan / Substitution",
       scenario: "model-substitution",
+      expect: "QUARANTINE",
       desc: "Model engine detects Trojan trigger backdoor → QUARANTINE.",
     },
     {
       num: 3,
-      title: "Step 3: Poisoned Dataset",
+      title: "Poisoned Dataset",
       scenario: "poisoned",
+      expect: "QUARANTINE",
       desc: "Data engine flags poisoned samples + Merkle proof mismatch.",
     },
     {
       num: 4,
-      title: "Step 4: Inference Tampering",
+      title: "Inference Tampering",
       scenario: "inference-tamper",
+      expect: "QUARANTINE",
       desc: "Inference page detects forged record hash + replay defense.",
     },
     {
       num: 5,
-      title: "Step 5: Environmental Drift",
+      title: "Environmental Drift",
       scenario: "drift",
+      expect: "REVIEW",
       desc: "Shift detection: MMD p-value < 0.01 → REVIEW (Drift ≠ attack).",
     },
     {
       num: 6,
-      title: "Step 6: Audit Chain Breach",
+      title: "Audit Chain Breach",
       scenario: null,
-      desc: "Tamper block below → verify chain in Audit Ledger → Compromised.",
+      expect: "VALID_FALSE",
+      desc: "Tamper newest ASSURANCE_DECISION block → verify chain in Audit Ledger → Compromised.",
     },
   ];
+
+  const executeStep = async (stepNum: number) => {
+    if (!canWrite) return;
+    const stepDef = STEP_DEFINITIONS[stepNum - 1];
+
+    // Mark step as running
+    setStepProgress((prev) => {
+      const updated = {
+        ...prev,
+        [stepNum]: { ...prev[stepNum], status: "running" as const },
+      };
+      try {
+        sessionStorage.setItem(storageProgressKey, JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+
+    try {
+      if (stepDef.scenario) {
+        // Steps 1 to 5
+        const res = await runScenario(stepDef.scenario);
+        const jobId = res.job.id;
+
+        setStepProgress((prev) => {
+          const updated = {
+            ...prev,
+            [stepNum]: { status: "running" as const, job_id: jobId },
+          };
+          try {
+            sessionStorage.setItem(storageProgressKey, JSON.stringify(updated));
+          } catch {}
+          return updated;
+        });
+
+        // Poll getJob until complete
+        let finishedJob: any = null;
+        for (let attempt = 0; attempt < 60; attempt++) {
+          await new Promise((r) => setTimeout(r, 600));
+          const j = await getJob(jobId);
+          if (j.status === "COMPLETED" || j.status === "FAILED") {
+            finishedJob = j;
+            break;
+          }
+        }
+
+        const isPass = finishedJob?.status === "COMPLETED" && finishedJob.decision === stepDef.expect;
+        const resultChip = finishedJob?.decision
+          ? `${finishedJob.decision} · risk ${finishedJob.risk_score ?? 0}`
+          : "FAILED";
+
+        setStepProgress((prev) => {
+          const updated = {
+            ...prev,
+            [stepNum]: {
+              status: (isPass ? "done-pass" : "done-mismatch") as any,
+              job_id: jobId,
+              decision: finishedJob?.decision || undefined,
+              risk_score: finishedJob?.risk_score ?? undefined,
+              resultChip,
+              mismatchInfo: isPass
+                ? undefined
+                : `expected ${stepDef.expect}, got ${finishedJob?.decision || "FAILED"}`,
+            },
+          };
+          try {
+            sessionStorage.setItem(storageProgressKey, JSON.stringify(updated));
+          } catch {}
+          return updated;
+        });
+      } else {
+        // Step 6: Audit Chain Breach
+        const blocksRes = await getAuditBlocks(0, 100);
+        const decisionBlocks = blocksRes.items.filter((b) => b.event_type === "ASSURANCE_DECISION");
+        const targetBlock =
+          decisionBlocks.length > 0
+            ? decisionBlocks.reduce((max, b) => (b.index > max.index ? b : max), decisionBlocks[0])
+            : blocksRes.items.find((b) => b.index > 0) || blocksRes.items[blocksRes.items.length - 1];
+
+        if (targetBlock && targetBlock.index > 0) {
+          await tamperAuditBlock(targetBlock.index);
+        } else {
+          await tamperAuditBlock(1);
+        }
+
+        const verifyRes = await verifyAuditChain();
+        const isBreached = !verifyRes.valid;
+
+        setStepProgress((prev) => {
+          const updated = {
+            ...prev,
+            [stepNum]: {
+              status: (isBreached ? "done-pass" : "done-mismatch") as any,
+              resultChip: isBreached ? "BREACH DETECTED · valid: false" : "VALID",
+              mismatchInfo: isBreached ? undefined : "expected valid: false, got valid: true",
+            },
+          };
+          try {
+            sessionStorage.setItem(storageProgressKey, JSON.stringify(updated));
+          } catch {}
+          return updated;
+        });
+      }
+
+      // Automatically advance target glow to the next undone step
+      setStepProgress((latest) => {
+        let nextTarget = stepNum;
+        for (let offset = 1; offset <= 6; offset++) {
+          const candidate = ((stepNum - 1 + offset) % 6) + 1;
+          const candidateStatus = latest[candidate]?.status;
+          if (candidateStatus !== "done-pass" && candidateStatus !== "done-mismatch") {
+            nextTarget = candidate;
+            break;
+          }
+        }
+        setTargetStep(nextTarget);
+        try {
+          sessionStorage.setItem(storageTargetKey, String(nextTarget));
+        } catch {}
+        return latest;
+      });
+
+      queryClient.invalidateQueries();
+    } catch (e: any) {
+      console.error("Failed to execute step", e);
+      setStepProgress((prev) => {
+        const updated = {
+          ...prev,
+          [stepNum]: {
+            status: "done-mismatch" as const,
+            mismatchInfo: `Error: ${e.message}`,
+          },
+        };
+        try {
+          sessionStorage.setItem(storageProgressKey, JSON.stringify(updated));
+        } catch {}
+        return updated;
+      });
+    }
+  };
+
+  const handleRestoreDemoEdits = async () => {
+    if (!canWrite) return;
+    setRestoringLedger(true);
+    setRestoreStatus(null);
+    try {
+      const tampers = await getDemoTampers();
+      for (const idx of tampers.audit_blocks) {
+        await restoreAuditBlock(idx);
+      }
+      for (const recId of tampers.inference_records) {
+        await restoreInferenceRecord(recId);
+      }
+      const verify = await verifyAuditChain();
+      if (verify.valid) {
+        setRestoreStatus("SYSTEM SECURE");
+      } else {
+        setRestoreStatus("Ledger restored with warnings (verification returned invalid)");
+      }
+      queryClient.invalidateQueries();
+    } catch (e: any) {
+      console.error("Restore error", e);
+      setRestoreStatus(`Restore error: ${e.message}`);
+    } finally {
+      setRestoringLedger(false);
+    }
+  };
+
+  const completedCount = STEP_DEFINITIONS.filter(
+    (s) =>
+      stepProgress[s.num]?.status === "done-pass" || stepProgress[s.num]?.status === "done-mismatch"
+  ).length;
+
+  const currentTargetDef = STEP_DEFINITIONS[targetStep - 1] || STEP_DEFINITIONS[0];
+  const isRunningTarget = stepProgress[targetStep]?.status === "running";
+  const isStep6Done =
+    stepProgress[6]?.status === "done-pass" || stepProgress[6]?.status === "done-mismatch";
 
   return (
     <div className="space-y-8 pb-16">
@@ -351,70 +682,240 @@ export const AttackLab: React.FC = () => {
         </div>
       )}
 
-      {/* 5-Minute Guided Demo Flow Assistant */}
+      {/* 6-Step Guided Demo Flow Assistant */}
       <GlassPanel className="p-5 border-cyan-500/30 bg-cyan-950/10 shadow-glow-cyan">
         <div className="flex items-center justify-between pb-3 border-b border-white/10 mb-3">
           <div className="flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-pulse" />
             <h3 className="font-mono text-xs font-bold uppercase tracking-wider text-cyan-300">
-              5-Minute Live Evaluation Sequence Helper
+              6-Step Threat Evaluation Sequence
             </h3>
           </div>
           <span className="text-[10px] font-mono text-slate-400">
-            Step {demoStep} of 6
+            {completedCount} of 6 complete
           </span>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-2 mb-3">
-          {demoSteps.map((s) => {
-            const isCurrent = demoStep === s.num;
+        {/* Progress Bar: "3 of 6 complete" */}
+        <div className="space-y-1 mb-4">
+          <div className="flex items-center justify-between text-[11px] font-mono">
+            <span className="text-slate-300 font-bold">{completedCount} of 6 complete</span>
+            <span className="text-cyan-400 font-mono font-bold">{Math.round((completedCount / 6) * 100)}%</span>
+          </div>
+          <div className="w-full h-1.5 bg-black/50 border border-white/10 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-gradient-to-r from-cyan-500 via-teal-400 to-emerald-400 transition-all duration-500 rounded-full"
+              style={{ width: `${(completedCount / 6) * 100}%` }}
+            />
+          </div>
+        </div>
+
+        {/* Step Cards Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-2.5 mb-4">
+          {STEP_DEFINITIONS.map((s) => {
+            const isTarget = targetStep === s.num;
+            const rec = stepProgress[s.num] || { status: s.num === 1 ? "next" : "pending" };
+            const isRunning = rec.status === "running";
+            const isPass = rec.status === "done-pass";
+            const isMismatch = rec.status === "done-mismatch";
+            const isPending = !isPass && !isMismatch && !isRunning && !isTarget;
+
+            // Visuals:
+            // next: soft pulsing cyan ring (2s ease-in-out; static ring under prefers-reduced-motion)
+            // running: spinner and "Running…", with card disabled
+            // done-pass: green check badge, subtle green border, result chip, "View" link
+            // done-mismatch: amber badge showing "expected X, got Y" and "View" link
+            // pending: dimmed
+            let cardClasses =
+              "relative p-3 rounded-xl border text-xs font-mono transition-all flex flex-col justify-between select-none ";
+
+            if (isRunning) {
+              cardClasses += "bg-cyan-950/20 border-cyan-500/40 text-cyan-200 pointer-events-none opacity-90 cursor-wait";
+            } else if (isPass) {
+              cardClasses += "bg-emerald-950/20 border-emerald-500/40 text-emerald-200 cursor-pointer hover:border-emerald-400/60";
+            } else if (isMismatch) {
+              cardClasses += "bg-amber-950/20 border-amber-500/40 text-amber-200 cursor-pointer hover:border-amber-400/60";
+            } else if (isTarget) {
+              cardClasses += "bg-cyan-950/30 border-cyan-400/60 text-white cursor-pointer ring-2 ring-cyan-400/80 shadow-[0_0_15px_rgba(6,182,212,0.35)] motion-safe:animate-[pulse_2s_ease-in-out_infinite]";
+            } else {
+              cardClasses += "bg-black/40 border-white/5 text-slate-400 opacity-60 cursor-pointer hover:opacity-90 hover:border-white/20";
+            }
+
             return (
               <div
                 key={s.num}
-                onClick={() => setDemoStep(s.num)}
-                className={`p-2.5 rounded-xl border text-xs font-mono cursor-pointer transition-all ${
-                  isCurrent
-                    ? "bg-cyan-500/20 border-cyan-400 text-white shadow-glow-cyan"
-                    : "bg-black/30 border-white/5 text-slate-400 hover:border-white/20"
-                }`}
+                onClick={() => {
+                  setTargetStep(s.num);
+                  try {
+                    sessionStorage.setItem(storageTargetKey, String(s.num));
+                  } catch {}
+                }}
+                className={cardClasses}
               >
-                <div className="font-bold flex items-center justify-between mb-1">
-                  <span>{s.title}</span>
-                  {isCurrent && <span className="text-cyan-400 text-[10px]">ACTIVE</span>}
+                <div>
+                  <div className="flex items-center justify-between mb-1.5 gap-1">
+                    <span className="font-bold text-white text-[11px] truncate">
+                      Step {s.num}: {s.title}
+                    </span>
+                    {isRunning && (
+                      <span className="flex items-center gap-1 text-[10px] text-cyan-300 font-bold shrink-0">
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                      </span>
+                    )}
+                    {isPass && (
+                      <span className="flex items-center text-emerald-400 font-bold shrink-0">
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                      </span>
+                    )}
+                    {isMismatch && (
+                      <span className="flex items-center text-amber-400 font-bold shrink-0">
+                        <AlertTriangle className="w-3.5 h-3.5" />
+                      </span>
+                    )}
+                    {isTarget && !isRunning && !isPass && !isMismatch && (
+                      <span className="text-[9px] px-1 py-0.2 rounded bg-cyan-500/20 text-cyan-400 font-bold shrink-0">
+                        NEXT
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[10px] font-sans text-slate-300 line-clamp-2 mb-2">
+                    {s.desc}
+                  </p>
                 </div>
-                <p className="text-[10px] font-sans text-slate-300 line-clamp-2">{s.desc}</p>
+
+                <div className="pt-2 border-t border-white/5 flex items-center justify-between gap-1 text-[10px]">
+                  {isRunning && (
+                    <span className="text-cyan-300 font-mono text-[10px] flex items-center gap-1 font-bold">
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                      Running…
+                    </span>
+                  )}
+                  {isPass && (
+                    <>
+                      <span className="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-bold truncate max-w-[110px]">
+                        {rec.resultChip || "PASS"}
+                      </span>
+                      {rec.job_id ? (
+                        <Link
+                          to={`/jobs/${rec.job_id}`}
+                          onClick={(e) => e.stopPropagation()}
+                          className="text-cyan-400 hover:text-cyan-300 underline shrink-0 font-bold"
+                        >
+                          View →
+                        </Link>
+                      ) : s.num === 6 ? (
+                        <Link
+                          to="/audit"
+                          onClick={(e) => e.stopPropagation()}
+                          className="text-cyan-400 hover:text-cyan-300 underline shrink-0 font-bold"
+                        >
+                          View →
+                        </Link>
+                      ) : null}
+                    </>
+                  )}
+                  {isMismatch && (
+                    <>
+                      <span className="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 font-bold truncate max-w-[110px]" title={rec.mismatchInfo}>
+                        {rec.mismatchInfo || "MISMATCH"}
+                      </span>
+                      {rec.job_id && (
+                        <Link
+                          to={`/jobs/${rec.job_id}`}
+                          onClick={(e) => e.stopPropagation()}
+                          className="text-amber-400 hover:text-amber-300 underline shrink-0 font-bold"
+                        >
+                          View →
+                        </Link>
+                      )}
+                    </>
+                  )}
+                  {isPending && (
+                    <span className="text-slate-500 text-[10px]">Pending</span>
+                  )}
+                  {isTarget && !isPass && !isMismatch && !isRunning && (
+                    <span className="text-cyan-300 text-[10px] font-bold">Target</span>
+                  )}
+                </div>
               </div>
             );
           })}
         </div>
 
-        <div className="flex items-center justify-between pt-2 border-t border-white/5 text-xs font-mono">
-          <span className="text-slate-300">
-            Current Target: <strong className="text-cyan-300">{demoSteps[demoStep - 1].title}</strong>
-          </span>
-          {demoSteps[demoStep - 1].scenario ? (
+        {/* Current Target & Action Button */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-white/5 text-xs font-mono">
+          <div className="flex items-center gap-2">
+            <span className="text-slate-400">Current Target:</span>
+            <strong className="text-cyan-300">
+              Step {targetStep}: {currentTargetDef.title}
+            </strong>
+          </div>
+
+          <div className="flex items-center gap-2">
             <button
-              onClick={() =>
-                handleRunScenario(
-                  demoSteps[demoStep - 1].scenario!,
-                  demoStep < 6 ? demoStep + 1 : 1
-                )
-              }
-              className="px-3 py-1.5 rounded-lg bg-cyan-500/30 hover:bg-cyan-500/40 text-cyan-200 border border-cyan-500/50 flex items-center gap-1.5 transition-colors font-bold"
+              onClick={() => executeStep(targetStep)}
+              disabled={!canWrite || isRunningTarget}
+              title={canWrite ? `Execute Step ${targetStep}` : "Admin access required"}
+              className="px-4 py-2 rounded-xl bg-cyan-500/30 hover:bg-cyan-500/40 text-cyan-200 border border-cyan-500/50 flex items-center gap-2 transition-all font-bold disabled:opacity-40 disabled:cursor-not-allowed shadow-glow-cyan"
             >
-              <span>Execute Scenario & Next Step</span>
-              <ArrowRight className="w-3.5 h-3.5" />
+              {isRunningTarget ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-cyan-400" />
+                  <span>Running…</span>
+                </>
+              ) : (
+                <>
+                  <span>
+                    Execute Step {targetStep}: {currentTargetDef.title} →
+                  </span>
+                  {!canWrite && <Lock className="w-3.5 h-3.5 text-slate-400" />}
+                </>
+              )}
             </button>
-          ) : (
-            <button
-              onClick={() => navigate("/audit")}
-              className="px-3 py-1.5 rounded-lg bg-violet-500/30 hover:bg-violet-500/40 text-violet-200 border border-violet-500/50 flex items-center gap-1.5 transition-colors font-bold"
-            >
-              <span>Open Audit Ledger</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </button>
-          )}
+          </div>
         </div>
+
+        {/* Post-Step-6 Ledger Restore Card */}
+        {isStep6Done && (
+          <div className="mt-4 p-4 rounded-xl bg-violet-950/20 border border-violet-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <div className="text-xs font-mono font-bold text-violet-300 flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-violet-400" />
+                Demo complete. Restore the ledger?
+              </div>
+              <p className="text-[11px] font-sans text-slate-300 mt-1">
+                Leaving the ledger compromised makes every subsequent assurance job quarantine. Restore demo edits to re-establish the cryptographic chain.
+              </p>
+              {restoreStatus && (
+                <div
+                  className={`text-xs font-mono font-bold mt-2 ${
+                    restoreStatus.includes("SECURE") ? "text-emerald-400" : "text-amber-400"
+                  }`}
+                >
+                  {restoreStatus}
+                </div>
+              )}
+            </div>
+            <button
+              onClick={handleRestoreDemoEdits}
+              disabled={!canWrite || restoringLedger}
+              title={canWrite ? "Restore demo edits" : "Admin access required"}
+              className="px-4 py-2 rounded-xl bg-violet-500/20 hover:bg-violet-500/30 text-violet-200 border border-violet-500/40 text-xs font-mono font-bold whitespace-nowrap flex items-center gap-2 transition-all disabled:opacity-50 shrink-0"
+            >
+              {restoringLedger ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <span>Restoring…</span>
+                </>
+              ) : (
+                <>
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>Restore demo edits</span>
+                </>
+              )}
+            </button>
+          </div>
+        )}
       </GlassPanel>
 
       {/* Six Scenario Cards */}

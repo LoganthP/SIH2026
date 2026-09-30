@@ -56,23 +56,84 @@ def safe_extract(zip_path: Path, dest: Path) -> None:
         zf.extractall(dest)
 
 
-def _profile_sample(p: Path, rel: str) -> dict[str, Any]:
+def _extract_exif(im: Image.Image) -> dict[str, Any] | None:
+    exif_fields = {}
+    gps_present = False
+    try:
+        raw_exif = im.getexif()
+        if raw_exif:
+            from PIL.ExifTags import TAGS
+            for tag_id, val in raw_exif.items():
+                tag_name = TAGS.get(tag_id, str(tag_id))
+                if tag_name in ("DateTimeOriginal", "Make", "Model", "Software"):
+                    exif_fields[tag_name] = str(val).strip()
+                if tag_name == "GPSInfo" or tag_id == 34853:
+                    gps_present = True
+
+            try:
+                exif_ifd = raw_exif.get_ifd(0x8769)
+                if exif_ifd:
+                    for sub_tag_id, sub_val in exif_ifd.items():
+                        sub_name = TAGS.get(sub_tag_id, str(sub_tag_id))
+                        if sub_name == "DateTimeOriginal" and "DateTimeOriginal" not in exif_fields:
+                            exif_fields["DateTimeOriginal"] = str(sub_val).strip()
+                        elif sub_name in ("Make", "Model", "Software") and sub_name not in exif_fields:
+                            exif_fields[sub_name] = str(sub_val).strip()
+            except Exception:
+                pass
+
+            try:
+                gps_ifd = raw_exif.get_ifd(0x8825)
+                if gps_ifd:
+                    gps_present = True
+            except Exception:
+                pass
+    except Exception:
+        pass
+
+    if not exif_fields and not gps_present:
+        return None
+    return {
+        "DateTimeOriginal": exif_fields.get("DateTimeOriginal"),
+        "Make": exif_fields.get("Make"),
+        "Model": exif_fields.get("Model"),
+        "Software": exif_fields.get("Software"),
+        "gps_present": gps_present,
+    }
+
+
+def _profile_sample(p: Path, rel: str, archive_ts: str | None = None) -> dict[str, Any]:
     data = p.read_bytes()
     rec = {"relpath": rel, "sha256": sha256_bytes(data), "size": len(data), "phash": None,
            "width": 0, "height": 0, "readable": True, "error": None, "stats": {}}
+    fmt = None
+    mode = None
+    exif = None
     try:
         with Image.open(io.BytesIO(data)) as im:
             im.verify()
         with Image.open(io.BytesIO(data)) as im:
             fmt = im.format
-            im = im.convert("RGB")
+            mode = im.mode
+            exif = _extract_exif(im)
+            im_rgb = im.convert("RGB")
             rec["width"], rec["height"] = im.size
-            rec["phash"] = str(imagehash.phash(im))
-            rec["stats"] = image_stats(im)
+            rec["phash"] = str(imagehash.phash(im_rgb))
+            rec["stats"] = image_stats(im_rgb)
         if fmt in FORMAT_EXT and p.suffix.lower() not in FORMAT_EXT[fmt]:
             rec["readable"], rec["error"] = False, f"extension {p.suffix} does not match content ({fmt})"
     except (UnidentifiedImageError, OSError, SyntaxError, ValueError) as exc:
         rec["readable"], rec["error"] = False, f"{type(exc).__name__}: {exc}"[:200]
+
+    rec["source_meta"] = {
+        "archive_modified_at": archive_ts,
+        "size_bytes": len(data),
+        "width": rec["width"],
+        "height": rec["height"],
+        "format": fmt,
+        "mode": mode,
+        "exif": exif,
+    }
     return rec
 
 
@@ -83,9 +144,15 @@ def register_dataset(session: Session, source: Path, name: str, contributor: str
     dest = settings.datasets_dir / asset_id
     dest.mkdir(parents=True)
     package_sha = None
+    archive_timestamps: dict[str, str] = {}
     try:
         if source.is_file() and zipfile.is_zipfile(source):
             package_sha = sha256_file(source)
+            with zipfile.ZipFile(source) as zf:
+                for zi in zf.infolist():
+                    dt = zi.date_time
+                    ts = f"{dt[0]:04d}-{dt[1]:02d}-{dt[2]:02d}T{dt[3]:02d}:{dt[4]:02d}:{dt[5]:02d}"
+                    archive_timestamps[zi.filename.replace("\\", "/")] = ts
             safe_extract(source, dest)
         elif source.is_dir():
             shutil.copytree(source, dest, dirs_exist_ok=True)
@@ -107,7 +174,10 @@ def register_dataset(session: Session, source: Path, name: str, contributor: str
         samples = []
         for k, p in enumerate(files):
             rel = p.relative_to(root).as_posix()
-            rec = _profile_sample(p, rel)
+            dest_rel = p.relative_to(dest).as_posix()
+            # Lookup zip entry timestamp
+            archive_ts = archive_timestamps.get(dest_rel) or archive_timestamps.get(rel) or archive_timestamps.get(f"{root.name}/{rel}")
+            rec = _profile_sample(p, rel, archive_ts)
             parts = rel.split("/")
             rec["label"] = manifest.get(rel, {}).get("label") or (parts[0] if len(parts) > 1 else "unlabeled")
             rec["contributor"] = manifest.get(rel, {}).get("contributor") or contributor

@@ -83,6 +83,7 @@ class DatasetSample(Base):
     readable: Mapped[bool] = mapped_column(Boolean, default=True)
     error: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     stats: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    source_meta: Mapped[Optional[dict[str, Any]]] = mapped_column(JSON, nullable=True)
 
 
 class DatasetAnnotation(Base):
@@ -218,6 +219,11 @@ class User(Base):
     reviewed_by: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     reviewed_at: Mapped[Optional[datetime]] = mapped_column(nullable=True)
     review_note: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    email: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    unit: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    role_request: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    role_request_note: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    role_request_at: Mapped[Optional[datetime]] = mapped_column(nullable=True)
     password_hash: Mapped[str] = mapped_column(String)
     disabled: Mapped[bool] = mapped_column(Boolean, default=False)
     failed_logins: Mapped[int] = mapped_column(Integer, default=0)
@@ -260,6 +266,12 @@ _MIGRATIONS = [
     ("users", "reviewed_by", "VARCHAR"),
     ("users", "reviewed_at", "DATETIME"),
     ("users", "review_note", "TEXT"),
+    ("users", "email", "VARCHAR"),
+    ("users", "unit", "VARCHAR"),
+    ("users", "role_request", "VARCHAR"),
+    ("users", "role_request_note", "TEXT"),
+    ("users", "role_request_at", "DATETIME"),
+    ("dataset_samples", "source_meta", "JSON"),
 ]
 
 

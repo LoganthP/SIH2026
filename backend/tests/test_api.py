@@ -70,3 +70,54 @@ def test_dataset_merkle_proof(client, demo_state):
     sid = items[0]["id"]
     proof = client.get(f"/api/assets/{ds}/samples/{sid}/proof").json()
     assert proof["verified"] is True
+
+
+def test_sample_details_and_source_meta(client, demo_state):
+    # Create an in-memory zip archive with a sample image
+    import zipfile
+    img_buf = io.BytesIO()
+    im = Image.new("RGB", (64, 48), (200, 50, 50))
+    im.save(img_buf, "PNG")
+    img_bytes = img_buf.getvalue()
+
+    zip_buf = io.BytesIO()
+    with zipfile.ZipFile(zip_buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        zi = zipfile.ZipInfo("vehicles/truck_01.png", (2025, 6, 15, 14, 30, 0))
+        zf.writestr(zi, img_bytes)
+    zip_bytes = zip_buf.getvalue()
+
+    # Upload dataset as operator/admin
+    resp = client.post(
+        "/api/assets/datasets",
+        data={"name": "Test Meta Dataset", "contributor": "lab-alpha"},
+        files={"file": ("test_meta.zip", zip_bytes, "application/zip")},
+    )
+    assert resp.status_code == 200, resp.text
+    ds_id = resp.json()["id"]
+
+    # List samples
+    samples_resp = client.get(f"/api/assets/{ds_id}/samples").json()
+    items = samples_resp["items"]
+    assert len(items) == 1
+    sample_id = items[0]["id"]
+
+    # Fetch details
+    details_resp = client.get(f"/api/assets/{ds_id}/samples/{sample_id}/details")
+    assert details_resp.status_code == 200, details_resp.text
+    details = details_resp.json()
+
+    # Verify recomputed hash matches
+    assert details["signatures"]["sha256"] == items[0]["sha256"]
+    assert details["signatures"]["sha256_recomputed_now"] == items[0]["sha256"]
+    assert details["signatures"]["file_unchanged"] is True
+
+    # Verify Merkle proof verifies
+    assert details["signatures"]["merkle_verified"] is True
+    assert details["signatures"]["merkle_root"] == resp.json()["sha256"]
+
+    # Verify source_meta is captured
+    assert details["general"]["width"] == 64
+    assert details["general"]["height"] == 48
+    assert details["general"]["source_modified_at"] == "2025-06-15T14:30:00"
+    assert details["general"]["format"] == "PNG"
+

@@ -21,6 +21,7 @@ import { useGlobalEventsContext } from "../EventsProvider";
 import { getClientDiagnostics, subscribeClientDiagnostics } from "../../api/client";
 import { useQuery } from "@tanstack/react-query";
 import { verifyAuditChain } from "../../api/endpoints";
+import { MyProfileModal } from "./MyProfileModal";
 
 interface TopBarProps {
   status?: any;
@@ -29,6 +30,7 @@ interface TopBarProps {
 export const TopBar: React.FC<TopBarProps> = ({ status: propStatus }) => {
   const [time, setTime] = useState<string>("");
   const [menuOpen, setMenuOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
   const [diagOpen, setDiagOpen] = useState(false);
   const { user, logout } = useAuth();
   const { systemStatus, isSecure, isCompromised } = useSystemStatus();
@@ -38,6 +40,26 @@ export const TopBar: React.FC<TopBarProps> = ({ status: propStatus }) => {
 
   const menuRef = useRef<HTMLDivElement>(null);
   const diagRef = useRef<HTMLDivElement>(null);
+  const prevRoleRef = useRef<string | null>(null);
+
+  // Monitor for role changes (e.g. from 60s refetch or window focus) and notify
+  useEffect(() => {
+    if (user?.role && prevRoleRef.current && prevRoleRef.current !== user.role) {
+      const formatted = user.role.charAt(0).toUpperCase() + user.role.slice(1);
+      window.dispatchEvent(
+        new CustomEvent("tejas:toast", {
+          detail: {
+            message: `Your role is now ${formatted}`,
+            title: "Clearance Elevation",
+            decision: "ACCEPT",
+          },
+        })
+      );
+    }
+    if (user?.role) {
+      prevRoleRef.current = user.role;
+    }
+  }, [user?.role]);
 
   // Verification query to get first broken block if compromised
   const { data: verifyData } = useQuery({
@@ -303,9 +325,19 @@ export const TopBar: React.FC<TopBarProps> = ({ status: propStatus }) => {
                 <button
                   onClick={() => {
                     setMenuOpen(false);
+                    setProfileOpen(true);
+                  }}
+                  className="w-full text-left px-4 py-2 text-sm font-mono text-slate-300 hover:text-white hover:bg-white/5 transition-colors flex items-center justify-between"
+                >
+                  <span>My Profile</span>
+                  <UserIcon className="w-4 h-4 text-cyan-400" />
+                </button>
+                <button
+                  onClick={() => {
+                    setMenuOpen(false);
                     logout();
                   }}
-                  className="w-full text-left px-4 py-2 text-sm font-mono text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 transition-colors flex items-center justify-between"
+                  className="w-full text-left px-4 py-2 text-sm font-mono text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 transition-colors flex items-center justify-between border-t border-white/5 mt-1"
                 >
                   <span>Disconnect</span>
                   <LogOut className="w-4 h-4" />
@@ -315,6 +347,8 @@ export const TopBar: React.FC<TopBarProps> = ({ status: propStatus }) => {
           </div>
         )}
       </div>
+
+      <MyProfileModal isOpen={profileOpen} onClose={() => setProfileOpen(false)} />
     </header>
   );
 };

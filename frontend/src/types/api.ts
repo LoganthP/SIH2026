@@ -10,11 +10,20 @@ export interface User {
   display_name: string;
   role: "admin" | "operator" | "client" | "user";
   status?: "pending" | "active" | "rejected";
-  requested_role?: "operator" | "client" | null;
+  requested_role?: "admin" | "operator" | "client" | null;
   request_note?: string | null;
   reviewed_by?: string | null;
   reviewed_at?: string | null;
   review_note?: string | null;
+  email?: string | null;
+  unit?: string | null;
+  role_request?: "admin" | "operator" | "client" | null;
+  role_request_note?: string | null;
+  role_request_at?: string | null;
+  type?: "access" | "role_change";
+  current_role?: string | null;
+  note?: string | null;
+  requested_at?: string | null;
   disabled: boolean;
   created_at: string;
   created_by?: string;
@@ -274,6 +283,22 @@ export interface SystemStatus {
     quarantine_at: number;
   };
   health: "SECURE" | "COMPROMISED";
+  limits?: {
+    max_archive_bytes: number;
+    max_files: number;
+    max_analysis_samples: number;
+    accepted_image_types: string[];
+  };
+}
+
+export interface TestPackCase {
+  scale: string;
+  id: string;
+  name: string;
+  expected: string | string[];
+  why: string;
+  images: number;
+  zip_exists: boolean;
 }
 
 export interface DashboardSummary {
@@ -332,4 +357,85 @@ export interface ProvenanceGraphData {
     label?: string;
     data?: any;
   }[];
+}
+
+export interface SampleDetails {
+  general: {
+    filename: string;
+    relpath: string;
+    label: string;
+    dataset_id: string;
+    dataset_name: string;
+    size_bytes: number;
+    format: string | null;
+    width: number;
+    height: number;
+    mode: string | null;
+    source_modified_at: string | null;
+    ingested_at: string | null;
+    uploaded_by: string | null;
+    contributor: string;
+  };
+  signatures: {
+    sha256: string;
+    sha256_recomputed_now: string | null;
+    file_unchanged: boolean;
+    merkle_root: string;
+    merkle_proof: { position: "left" | "right"; hash: string }[];
+    merkle_verified: boolean;
+    manifest_present: boolean;
+    listed_in_manifest: boolean;
+    manifest_hash_matches: boolean;
+    manifest_signer: string | null;
+    manifest_signature_valid: boolean;
+    signer_key_fingerprint: string | null;
+  };
+  security: {
+    dataset_status: string;
+    uploaded_by: string | null;
+    ingested_at: string | null;
+    visible_to_roles: string[];
+    findings: {
+      job_id: string;
+      decision: string;
+      time: string | null;
+      reasons: string[];
+    }[];
+  };
+  details: {
+    exif: {
+      DateTimeOriginal?: string | null;
+      Make?: string | null;
+      Model?: string | null;
+      Software?: string | null;
+      gps_present?: boolean;
+    } | null;
+    stats: {
+      brightness?: number;
+      contrast?: number;
+      saturation?: number;
+      blur?: number;
+      haze?: number;
+      edge_density?: number;
+      [key: string]: any;
+    };
+    phash: string | null;
+    sample_id: number;
+  };
+  history: {
+    same_file_elsewhere: {
+      dataset_id: string;
+      dataset_name: string;
+      relpath: string;
+      label: string;
+      ingested_at: string | null;
+    }[];
+    near_duplicates: {
+      dataset_id: string;
+      relpath: string;
+      sample_id: number;
+      distance: number;
+    }[];
+    demo_tampered: boolean;
+  };
 }

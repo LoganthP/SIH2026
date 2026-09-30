@@ -22,6 +22,7 @@ def status(db: Session = Depends(get_db)):
     emb, note = get_embedder()
     km = platform_keys()
     ledger = verify_chain(db)
+    from ..services.ingestion import IMG_EXT
     return {"system": "TEJAS-CV", "version": "1.0.0", "mode": "AIR-GAPPED",
             "external_network_dependencies": [], "embedder": emb.name, "embedder_note": note,
             "adapters": adapter_availability(), "signing": {"algorithm": "Ed25519", "key_id": km.key_id,
@@ -29,7 +30,13 @@ def status(db: Session = Depends(get_db)):
             "audit_ledger": {"valid": ledger["valid"], "length": ledger["length"], "head": ledger["head_hash"]},
             "fusion": {"weights": settings.fusion_weights, "review_at": settings.review_threshold,
                        "quarantine_at": settings.quarantine_threshold},
-            "health": "SECURE" if ledger["valid"] else "COMPROMISED"}
+            "health": "SECURE" if ledger["valid"] else "COMPROMISED",
+            "limits": {
+                "max_archive_bytes": settings.max_archive_bytes,
+                "max_files": settings.max_archive_files,
+                "max_analysis_samples": settings.max_analysis_samples,
+                "accepted_image_types": sorted(list(IMG_EXT)),
+            }}
 
 
 @router.get("/dashboard/summary")

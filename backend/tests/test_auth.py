@@ -367,3 +367,105 @@ def test_lockout_after_failed_logins(clients):
         anon.post("/api/auth/login", json={"username": "analyst.priya", "password": "wrong-password-1"})
     r = anon.post("/api/auth/login", json={"username": "analyst.priya", "password": USER_PW})
     assert r.status_code == 423
+
+
+def test_client_edits_own_profile_and_email_validation(clients):
+    anon, admin, _ = clients
+    users = admin.get("/api/auth/users").json()
+    priya_user = [u for u in users if u["username"] == "analyst.priya"][0]
+    admin.post(f"/api/auth/users/{priya_user['id']}/reset-password", json={"new_password": USER_PW})
+    user = _As(anon.c, _login(anon.c, "analyst.priya", USER_PW))
+    # Invalid email
+    bad = user.patch("/api/auth/me", json={"email": "not-an-email"})
+    assert bad.status_code == 400
+
+    # Valid edit
+    res = user.patch("/api/auth/me", json={
+        "display_name": "Priya Sharma",
+        "email": "priya.sharma@def.gov",
+        "unit": "Cyber Defense Wing"
+    })
+    assert res.status_code == 200
+    me = res.json()
+    assert me["display_name"] == "Priya Sharma"
+    assert me["email"] == "priya.sharma@def.gov"
+    assert me["unit"] == "Cyber Defense Wing"
+
+    # Empty email is allowed
+    res_empty = user.patch("/api/auth/me", json={"email": ""})
+    assert res_empty.status_code == 200
+    assert res_empty.json()["email"] == ""
+
+
+def test_client_cannot_patch_other_or_role(clients):
+    anon, admin, _ = clients
+    user = _As(anon.c, _login(anon.c, "analyst.priya", USER_PW))
+    users = admin.get("/api/auth/users").json()
+    admin_user = [u for u in users if u["username"] == "cmdr.admin"][0]
+    priya_user = [u for u in users if u["username"] == "analyst.priya"][0]
+
+    # Client cannot PATCH another user -> 403
+    r1 = user.patch(f"/api/auth/users/{admin_user['id']}", json={"display_name": "Hacked"})
+    assert r1.status_code == 403
+
+    # Client cannot PATCH themselves via admin users route -> 403
+    r2 = user.patch(f"/api/auth/users/{priya_user['id']}", json={"role": "admin"})
+    assert r2.status_code == 403
+
+    # Client cannot change role via /api/auth/me
+    r3 = user.patch("/api/auth/me", json={"role": "admin"})
+    assert r3.status_code == 200
+    assert r3.json()["role"] == "client"
+
+
+def test_role_request_flow_approve_and_reject(clients):
+    anon, admin, _ = clients
+    user = _As(anon.c, _login(anon.c, "analyst.priya", USER_PW))
+    # Cannot request role already held
+    r_same = user.post("/api/auth/me/role-request", json={"role": "client"})
+    assert r_same.status_code == 400
+
+    # Request operator role
+    r_req = user.post("/api/auth/me/role-request", json={"role": "operator", "note": "Need dataset ingestion access"})
+    assert r_req.status_code == 200
+    assert r_req.json()["role_request"] == "operator"
+
+    # Duplicate open request -> 409
+    r_dup = user.post("/api/auth/me/role-request", json={"role": "admin"})
+    assert r_dup.status_code == 409
+
+    # Admin sees it in requests
+    reqs = admin.get("/api/auth/requests?status=pending").json()
+    role_changes = [x for x in reqs if x.get("type") == "role_change" and x["username"] == "analyst.priya"]
+    assert len(role_changes) >= 1
+    rc = role_changes[0]
+    assert rc["current_role"] == "client"
+    assert rc["requested_role"] == "operator"
+
+    # Admin rejects
+    r_rej = admin.post(f"/api/auth/role-requests/{rc['id']}/reject", json={"note": "Pending unit clearance"})
+    assert r_rej.status_code == 200
+    assert r_rej.json()["role"] == "client"
+    assert r_rej.json()["role_request"] is None
+
+    # Check client /me still shows client
+    me_after_rej = user.get("/api/auth/me").json()
+    assert me_after_rej["role"] == "client"
+    assert me_after_rej["role_request"] is None
+
+    # Client requests again
+    user.post("/api/auth/me/role-request", json={"role": "operator", "note": "Unit clearance attached"})
+
+    # Admin approves
+    r_app = admin.post(f"/api/auth/role-requests/{rc['id']}/approve", json={"role": "operator", "note": "Approved"})
+    assert r_app.status_code == 200
+    assert r_app.json()["role"] == "operator"
+
+    # Next /me shows operator!
+    me_after_app = user.get("/api/auth/me").json()
+    assert me_after_app["role"] == "operator"
+    assert me_after_app["permissions"]["ingest_data"] is True
+
+    # Restore to client for subsequent tests
+    admin.patch(f"/api/auth/users/{rc['id']}", json={"role": "client"})
+

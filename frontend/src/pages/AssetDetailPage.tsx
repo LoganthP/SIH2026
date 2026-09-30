@@ -11,12 +11,14 @@ import {
   ChevronLeft,
   ChevronRight,
   Filter,
+  Info,
 } from "lucide-react";
 import { getAsset, listSamples, getSampleImageUrl, getSampleProof, getMlModelTrainingRecord } from "../api/endpoints";
 import { GlassPanel } from "../components/ui/GlassPanel";
 import { HashText } from "../components/ui/HashText";
 import { formatDateTime, formatBytes } from "../lib/format";
 import { MerkleProofResponse } from "../types/api";
+import { ImagePropertiesDialog } from "../components/assets/ImagePropertiesDialog";
 
 export const AssetDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -31,6 +33,8 @@ export const AssetDetailPage: React.FC = () => {
     proof: MerkleProofResponse | null;
     loading: boolean;
   } | null>(null);
+
+  const [propertiesSampleId, setPropertiesSampleId] = useState<number | null>(null);
 
   const { data: asset, isLoading: loadingAsset } = useQuery({
     queryKey: ["asset", id],
@@ -217,11 +221,15 @@ export const AssetDetailPage: React.FC = () => {
                   className="p-2 rounded-xl bg-black/40 border border-white/5 hover:border-cyan-500/40 transition-all flex flex-col justify-between"
                 >
                   <div>
-                    <div className="aspect-square bg-slate-900 rounded-lg overflow-hidden mb-2 relative flex items-center justify-center">
+                    <div
+                      onClick={() => setPropertiesSampleId(sample.id)}
+                      className="aspect-square bg-slate-900 rounded-lg overflow-hidden mb-2 relative flex items-center justify-center cursor-pointer group"
+                      title="Click to view image properties"
+                    >
                       <img
                         src={getSampleImageUrl(id!, sample.id)}
                         alt={sample.relpath}
-                        className="w-full h-full object-cover"
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                         onError={(e) => {
                           (e.target as HTMLElement).style.display = "none";
                         }}
@@ -231,18 +239,25 @@ export const AssetDetailPage: React.FC = () => {
                       </div>
                     </div>
 
-                    <div className="text-[10px] font-mono text-slate-400 truncate mb-1">
+                    <div className="text-[10px] font-mono text-slate-400 truncate mb-1" title={sample.relpath}>
                       {sample.relpath}
                     </div>
                   </div>
 
-                  <div className="pt-2 border-t border-white/5 flex items-center justify-between">
-                    <span className="text-[9px] font-mono text-slate-500">#{sample.id}</span>
+                  <div className="pt-2 border-t border-white/5 flex items-center justify-between gap-1">
+                    <button
+                      onClick={() => setPropertiesSampleId(sample.id)}
+                      className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 flex items-center gap-1 transition-colors"
+                      title="View Properties (General, Signatures, Security, Details, Versions)"
+                    >
+                      <Info className="w-3 h-3 text-cyan-400" />
+                      <span>Props</span>
+                    </button>
                     <button
                       onClick={() => handleInspectProof(sample.id, sample.relpath)}
                       className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 border border-cyan-500/30"
                     >
-                      Merkle Proof
+                      Proof
                     </button>
                   </div>
                 </div>
@@ -254,6 +269,17 @@ export const AssetDetailPage: React.FC = () => {
             </div>
           )}
         </GlassPanel>
+      )}
+
+      {/* IMAGE PROPERTIES DIALOG */}
+      {propertiesSampleId !== null && (
+        <ImagePropertiesDialog
+          datasetId={id!}
+          sampleId={propertiesSampleId}
+          sampleList={samplesData?.items?.map((s) => s.id) || []}
+          onClose={() => setPropertiesSampleId(null)}
+          onSelectSample={(newId) => setPropertiesSampleId(newId)}
+        />
       )}
 
       {/* Training Record (Model Only) */}

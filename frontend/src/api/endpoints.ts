@@ -16,8 +16,10 @@ import {
   MeResponse,
   MerkleProofResponse,
   ProvenanceGraphData,
+  SampleDetails,
   Scenario,
   SystemStatus,
+  TestPackCase,
   TrustedModel,
   User,
 } from "../types/api";
@@ -28,6 +30,12 @@ export const signup = (body: any) => request<any>("/api/auth/signup", { method: 
 export const login = (body: any) => request<any>("/api/auth/login", { method: "POST", body: JSON.stringify(body) });
 export const logout = () => request<any>("/api/auth/logout", { method: "POST" });
 export const getMe = () => request<MeResponse>("/api/auth/me");
+export const editProfile = (body: { display_name?: string; email?: string; unit?: string }) =>
+  request<User>("/api/auth/me", { method: "PATCH", body: JSON.stringify(body) });
+export const requestRoleChange = (body: { role: string; note?: string }) =>
+  request<User>("/api/auth/me/role-request", { method: "POST", body: JSON.stringify(body) });
+export const cancelRoleChange = () =>
+  request<User>("/api/auth/me/role-request", { method: "DELETE" });
 export const changePassword = (body: any) => request<any>("/api/auth/password", { method: "POST", body: JSON.stringify(body) });
 
 // Admin Users & Access Requests
@@ -38,6 +46,10 @@ export const resetUserPassword = (id: string, body: any) => request<any>(`/api/a
 export const getRequests = (status = "pending") => request<User[]>(`/api/auth/requests?status=${encodeURIComponent(status)}`);
 export const approveRequest = (userId: string, body: { role: string; note?: string }) => request<User>(`/api/auth/requests/${encodeURIComponent(userId)}/approve`, { method: "POST", body: JSON.stringify(body) });
 export const rejectRequest = (userId: string, body?: { note?: string }) => request<User>(`/api/auth/requests/${encodeURIComponent(userId)}/reject`, { method: "POST", body: JSON.stringify(body || {}) });
+export const approveRoleRequest = (userId: string, body?: { role?: string; note?: string }) =>
+  request<User>(`/api/auth/role-requests/${encodeURIComponent(userId)}/approve`, { method: "POST", body: JSON.stringify(body || {}) });
+export const rejectRoleRequest = (userId: string, body?: { note?: string }) =>
+  request<User>(`/api/auth/role-requests/${encodeURIComponent(userId)}/reject`, { method: "POST", body: JSON.stringify(body || {}) });
 
 // System
 export const getSystemStatus = () => request<SystemStatus>("/api/system/status");
@@ -164,6 +176,11 @@ export const listSamples = (assetId: string, offset = 0, limit = 100, label?: st
 export const getSampleProof = (assetId: string, sampleId: number) =>
   request<MerkleProofResponse>(
     `/api/assets/${encodeURIComponent(assetId)}/samples/${sampleId}/proof`
+  );
+
+export const getSampleDetails = (assetId: string, sampleId: number) =>
+  request<SampleDetails>(
+    `/api/assets/${encodeURIComponent(assetId)}/samples/${sampleId}/details`
   );
 
 export const getSampleImageUrl = (assetId: string, sampleId: number) => {
@@ -293,3 +310,55 @@ export const runBenchmark = (suite: string, source_dataset?: string) =>
     method: "POST",
     body: JSON.stringify({ suite, source_dataset }),
   });
+
+// Workspace & Test Packs
+export const getTestPacks = () => request<TestPackCase[]>("/api/workspace/test-packs");
+
+export const ingestTestPack = (scale: string, caseId: string) =>
+  request<Asset>(`/api/workspace/test-packs/${encodeURIComponent(scale)}/${encodeURIComponent(caseId)}/ingest`, {
+    method: "POST",
+  });
+
+export const uploadDatasetXHR = (
+  formData: FormData,
+  onProgress?: (pct: number) => void
+): Promise<Asset> => {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", `${API_URL}/api/assets/datasets`);
+    xhr.withCredentials = true;
+
+    if (onProgress && xhr.upload) {
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) {
+          const pct = Math.round((e.loaded / e.total) * 100);
+          onProgress(pct);
+        }
+      };
+    }
+
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try {
+          const json = JSON.parse(xhr.responseText);
+          resolve(json);
+        } catch {
+          resolve(xhr.responseText as any);
+        }
+      } else {
+        try {
+          const errJson = JSON.parse(xhr.responseText);
+          reject(new Error(errJson.detail || `Upload failed with status ${xhr.status}`));
+        } catch {
+          reject(new Error(`Upload failed with status ${xhr.status}: ${xhr.statusText}`));
+        }
+      }
+    };
+
+    xhr.onerror = () => {
+      reject(new Error("Network error during dataset upload"));
+    };
+
+    xhr.send(formData);
+  });
+};

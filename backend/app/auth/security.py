@@ -85,6 +85,9 @@ CLIENT_ACTIONS = [
     ("POST", r"^/api/system/verify-independent$"),
     ("POST", r"^/api/auth/logout$"),
     ("POST", r"^/api/auth/password$"),
+    ("PATCH", r"^/api/auth/me$"),
+    ("POST", r"^/api/auth/me/role-request$"),
+    ("DELETE", r"^/api/auth/me/role-request$"),
 ]
 USER_ACTIONS = CLIENT_ACTIONS  # alias for backwards compatibility
 
@@ -97,6 +100,13 @@ OPERATOR_ACTIONS = [
     ("POST", r"^/api/benchmarks/runs"),
     ("POST", r"^/api/benchmarks/import/"),
     ("POST", r"^/api/benchmarks/attacks"),
+    ("POST", r"^/api/workspace/test-packs/"),
+]
+
+# Admin actions for user management
+ADMIN_ACTIONS = [
+    ("PATCH", r"^/api/users/[^/]+$"),       # Edit any user (role, status, display_name)
+    ("PATCH", r"^/api/auth/users/[^/]+$"),
 ]
 
 ADMIN_READS = [r"^/api/auth/users", r"^/api/auth/requests"]
@@ -176,4 +186,6 @@ def required_role(method: str, path: str) -> str:
         return "client"
     if any(m == method and re.match(p, path) for m, p in OPERATOR_ACTIONS):
         return "operator"
+    if any(m == method and re.match(p, path) for m, p in ADMIN_ACTIONS):
+        return "admin"
     return "admin"

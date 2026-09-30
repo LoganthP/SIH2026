@@ -170,8 +170,28 @@ export const EventTicker: React.FC = () => {
       }, 7000);
     };
 
+    const handleToast = (e: any) => {
+      const msg = e.detail?.message || "Notification";
+      const newToast: ToastNotification = {
+        id: `toast-${Date.now()}`,
+        type: e.detail?.type === "failed" ? "failed" : "complete",
+        jobId: e.detail?.title || "Account Notice",
+        message: msg,
+        decision: e.detail?.decision || "ACCEPT",
+        timestamp: new Date(),
+      };
+      setToasts((prev) => [newToast, ...prev.slice(0, 2)]);
+      setTimeout(() => {
+        setToasts((prev) => prev.filter((t) => t.id !== newToast.id));
+      }, 7000);
+    };
+
     window.addEventListener("tejas:forbidden", handleForbidden);
-    return () => window.removeEventListener("tejas:forbidden", handleForbidden);
+    window.addEventListener("tejas:toast", handleToast);
+    return () => {
+      window.removeEventListener("tejas:forbidden", handleForbidden);
+      window.removeEventListener("tejas:toast", handleToast);
+    };
   }, []);
 
   // Close history popover on click outside
