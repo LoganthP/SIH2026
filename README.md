@@ -1,295 +1,677 @@
-# TEJAS-CV — Trusted Evaluation & Judgement Assurance System for Computer Vision
+<div align="center">
 
-**SIH 2026 · PS SIH26228 · Theme: Blockchain & Cybersecurity · Team Jai Hind**
+<img width="100%" src="https://capsule-render.vercel.app/api?type=waving&color=0F172A&height=260&section=header&text=TEJAS-CV&fontSize=56&fontColor=ffffff&animation=fadeIn&fontAlignY=38&desc=Trusted%20Evaluation%20%26%20Judgement%20Assurance%20System%20for%20Computer%20Vision&descAlignY=58&descAlign=50"/>
 
-> "Don't trust the data, model, contributor or output; verify them, collect evidence, assess risk, and then decide."
+### Offline AI-Integrity Assurance for Computer-Vision Systems
 
-TEJAS-CV is an **offline assurance layer** that sits around an existing computer-vision pipeline. It does not
-replace the pipeline or retrain anything. It independently verifies the **dataset**, the **model**, the
-**inference records** and the **contributors**, fuses the evidence into an explainable risk score, returns
-**ACCEPT / REVIEW / QUARANTINE**, and seals the decision into a signed, hash-chained audit ledger.
+**Smart India Hackathon 2026 · Team Jai Hind · Problem Statement SIH26228**
 
-```
-Data → Model → Inference → Evidence → Decision          Detect → Explain → Prove → Decide
-```
+<img src="https://img.shields.io/badge/Python-3.10+-blue?style=for-the-badge&logo=python"/>
+<img src="https://img.shields.io/badge/FastAPI-Backend-009688?style=for-the-badge&logo=fastapi"/>
+<img src="https://img.shields.io/badge/React-Frontend-61DAFB?style=for-the-badge&logo=react&logoColor=black"/>
+<img src="https://img.shields.io/badge/TypeScript-Strict-blue?style=for-the-badge&logo=typescript"/>
+<img src="https://img.shields.io/badge/Vite-Lightning-purple?style=for-the-badge&logo=vite"/>
+<img src="https://img.shields.io/badge/SQLite-Embedded-003B57?style=for-the-badge&logo=sqlite"/>
+<img src="https://img.shields.io/badge/ONNX-Runtime-black?style=for-the-badge&logo=onnx"/>
+<img src="https://img.shields.io/badge/Ed25519-Signed%20Ledger-orange?style=for-the-badge"/>
+<img src="https://img.shields.io/badge/Mode-Air--Gapped-red?style=for-the-badge"/>
 
-This repository contains the **backend and the full processing pipeline** (FastAPI + Python). The
-frontend is specified separately in `UI_UX_PROMPT.md`.
+**DETECT • EXPLAIN • PROVE • DECIDE**
+
+*From "Trust me" to "Prove it."*
+
+</div>
+
+# ✨ Overview
+
+**TEJAS-CV** is an offline assurance layer that sits around an existing computer-vision pipeline. It does **not** replace the pipeline or retrain anything. It independently verifies the **dataset**, the **model**, the **inference outputs** and the **contributors**, fuses the evidence into an explainable risk score, returns **ACCEPT / REVIEW / QUARANTINE**, and seals every decision into a signed, hash-chained audit ledger.
+
+It combines:
+- 🛡️ Four parallel assurance engines (Data, Model, Provenance, Drift)
+- 🔍 Poisoning, backdoor, substitution and tampering detection
+- 🧾 Explainable findings: every one carries a reason, evidence, confidence, severity and recommendation
+- 🔗 A signed, hash-chained audit ledger with Merkle roots
+- 🧪 A built-in attack lab, CNN trainer and ground-truth benchmark harness
+- 👥 Role-based access (Admin / Operator / Client) with an approval workflow
+- 📴 100% offline operation: no network calls at runtime
+
+> *Data → Model → Inference → Evidence → Decision*
 
 ---
 
-## 1. Quick start (≈2 minutes)
+# 🚀 Core Features
+
+## 🔎 Four Assurance Engines
+- **Data Integrity:** unreadable files, exact and near duplicates, cross-label conflicts, class-distribution shift, kNN label consistency, recurring trigger-artifact screening, per-label outliers, contributor attribution
+- **Model Integrity:** pickle scan, signed trusted-registry comparison (substitution vs weight tampering), custom-op and input-shortcut inspection, behavioural fingerprint, controlled trigger testing with attack-success-rate reporting
+- **Provenance & Tamper:** dataset Merkle re-hash, signed manifest verification, contributor signatures, inference chain and audit ledger verification
+- **Shift & Drift:** out-of-distribution rate, MMD permutation test, KS tests, named environmental conditions (night, haze, blur). *Drift is never treated as an attack.*
+
+## ⚖️ Evidence Fusion & Decision
+- Noisy-OR engine scores, weighted fusion, explicit and reported decision rules (R1–R6)
+- `ACCEPT` below 35 · `REVIEW` 35–69 · `QUARANTINE` 70 and above, with rule overrides
+- Confidence is reduced when checks were unavailable (coverage)
+
+## 🔗 Cryptographic Audit Trail
+- SHA-256 per file, Merkle root per dataset
+- Ed25519-signed, hash-chained audit blocks
+- Signed assurance reports, signed training records, signed benchmark results
+- **Independent verifier** that imports no TEJAS-CV code and re-checks the database from scratch
+
+## 🧪 Attack Lab & Benchmarks
+- Six reproducible scenarios: clean, poisoned, model substitution, weight tamper, inference tamper, drift
+- One-click **Execute all** with live step highlighting
+- Real CNN trainer (NumPy backprop, exported to ONNX), optionally trained on poisoned data with a chosen trigger
+- Benchmark suites (`ci`, `smoke`, `standard`) scored against signed red-team answer keys
+- Test packs with known outcomes: **ACCEPT, REVIEW, QUARANTINE and REJECTED**
+
+## 👥 Access Management
+- Request-access flow with administrator approval
+- Three roles: **Admin**, **Operator**, **Client**
+- Every upload, training run, assessment and inference is attributed to the account that did it
+- Profile editing and role-change requests
+
+## 🗺️ Provenance & Forensics
+- Provenance graph showing people, data sources, engines, the decision and the sealed audit block, with timestamps
+- Per-image **Properties** dialog: General, Digital Signatures, Security, Details, Previous Versions
+- Live pipeline view driven by WebSocket events
+
+## 🌙 Premium UI/UX
+- Command-centre dark glass interface
+- Role-aware, lock-and-explain controls
+- Live updates, no manual refresh
+- Public landing page with Log in / Request access
+
+---
+
+# 🧠 System Architecture
+
+```mermaid
+flowchart TD
+
+    A["👤 Admin / Operator / Client"] --> B["⚛️ React + Vite Client"]
+
+    B --> C["📊 Dashboard and Live Pipeline"]
+    B --> D["🧪 Attack Lab and Benchmarks"]
+    B --> E["🗂️ Assets, Workspace and Properties"]
+    B --> F["🧾 Audit Ledger and Provenance Graph"]
+
+    C --> G["📡 REST and WebSocket"]
+    D --> G
+    E --> G
+    F --> G
+
+    G --> H["🔐 Auth Middleware and Role Policy"]
+    H --> I["🖥️ FastAPI Application"]
+
+    I --> J["🎛️ Orchestrator - 10 stage pipeline"]
+
+    J --> K1["🗃️ Data Engine"]
+    J --> K2["🧩 Model Engine"]
+    J --> K3["🔗 Provenance Engine"]
+    J --> K4["🌦️ Drift Engine"]
+
+    K1 --> L["⚖️ Evidence Fusion"]
+    K2 --> L
+    K3 --> L
+    K4 --> L
+
+    L --> M["✅ ACCEPT / ⚠️ REVIEW / ⛔ QUARANTINE"]
+    M --> N["🔏 Signed Report"]
+    M --> O["⛓️ Hash-Chained Audit Ledger"]
+
+    I --> P[("SQLite - tejas.db")]
+    O --> P
+    I --> Q[("Files on disk - datasets, models, keys, reports")]
+```
+
+---
+
+# ⚡ System Workflow
+
+```mermaid
+sequenceDiagram
+
+    participant User
+    participant Client
+    participant API
+    participant Orchestrator
+    participant Engines
+    participant Ledger
+
+    User->>Client: Select dataset, model and baseline
+    Client->>API: POST /api/jobs
+    API-->>Client: Job created with WebSocket URL
+    Client->>API: Connect to /ws/jobs/job_id
+
+    API->>Orchestrator: Run job
+    Orchestrator->>Orchestrator: Fingerprint and extract features
+    Orchestrator->>Engines: Run 4 engines in parallel
+    Engines-->>Client: Live progress events
+    Engines-->>Orchestrator: Findings with evidence
+
+    Orchestrator->>Orchestrator: Fuse evidence, apply rules
+    Orchestrator->>Ledger: Seal decision as signed block
+    Orchestrator-->>Client: Decision, risk, confidence, audit block
+
+    User->>Client: Open evidence or download signed report
+    Client->>API: GET report
+    API-->>Client: Signed JSON report with signature check
+```
+
+---
+
+# 🏗️ Tech Stack
+
+| Technology | Purpose |
+|---|---|
+| Python 3.10+ | Backend runtime |
+| FastAPI + Uvicorn | REST and WebSocket API |
+| SQLAlchemy + SQLite (WAL) | Embedded database, no server required |
+| ONNX Runtime | Model inference and analysis |
+| NumPy / SciPy | Statistics, MMD, CNN trainer |
+| Pillow / ImageHash | Image handling, perceptual hashing |
+| `cryptography` | Ed25519 signatures |
+| SHA-256 + Merkle trees | Fingerprints and inclusion proofs |
+| scrypt (stdlib) | Password hashing |
+| PyYAML | Dataset catalogue |
+| React + TypeScript | Frontend UI |
+| Vite | Build tool and dev proxy |
+| Tailwind CSS | Styling |
+| Framer Motion | Animations |
+| Recharts | Charts |
+| React Flow | Provenance graph |
+| TanStack Query | Data fetching and caching |
+| pytest | Backend tests |
+
+*Optional:* PyTorch for TorchScript models, DINOv2 (local weights) for stronger embeddings.
+
+---
+
+# 📂 Project Structure
+
+```bash
+SIH2026/
+│
+├── backend/
+│   ├── app/
+│   │   ├── api/             # REST + WebSocket routers (auth, assets, jobs, ml, ...)
+│   │   ├── auth/            # Password hashing, sessions, role policy, middleware
+│   │   ├── core/            # hashing, merkle, keys, ledger, events, actor
+│   │   ├── engines/         # data, model, provenance, drift + behaviour probes
+│   │   ├── fusion/          # Evidence fusion and decision rules
+│   │   ├── adapters/        # ONNX, TorchScript, pickle scanner, detection adapter
+│   │   ├── features/        # Image statistics and embedders
+│   │   ├── formats/         # CIFAR-10, GTSRB, corruptions, COCO, YOLO
+│   │   ├── attacks/         # Dataset, model and inference attack generators
+│   │   ├── ml/              # NumPy CNN, trainer, demo data
+│   │   ├── benchmarks/      # Metrics (exact AUROC, TPR at FPR)
+│   │   ├── orchestrator/    # 10-stage job pipeline
+│   │   ├── services/        # ingestion, baseline, inference, jobs, demo
+│   │   ├── demo/            # Reproducible attack-lab data generator
+│   │   ├── config.py
+│   │   ├── database.py
+│   │   └── main.py
+│   │
+│   ├── scripts/             # run_demo, train_model, audit, run_benchmark, test_packs, ...
+│   ├── tests/               # pytest suite
+│   ├── benchmarks/          # catalog.yaml (public dataset catalogue)
+│   ├── requirements.txt
+│   ├── requirements-dev.txt
+│   └── Dockerfile
+│
+├── frontend/
+│   ├── public/
+│   ├── src/
+│   │   ├── api/             # client, endpoints, query keys
+│   │   ├── realtime/        # shared event socket, job stream
+│   │   ├── components/
+│   │   ├── pages/
+│   │   ├── landing/         # public landing page
+│   │   └── types/
+│   ├── package.json
+│   └── vite.config.ts
+│
+├── start-backend.ps1
+├── start-frontend.ps1
+├── docker-compose.yml
+├── README.md
+└── .gitignore
+```
+
+> Runtime data (`backend/data/`: database, keys, datasets, models, reports) is created automatically and is git-ignored.
+
+---
+
+# 🔐 Security Architecture
+
+```mermaid
+flowchart LR
+
+    A["👤 Request access"] --> B["🛂 Admin approval"]
+    B --> C["🔑 Login - scrypt verified"]
+    C --> D["🍪 HttpOnly session cookie"]
+
+    D --> E["🛡️ Auth middleware"]
+    E --> F["📜 Role policy: client / operator / admin"]
+    F --> G["🔌 API routes and WebSockets"]
+
+    G --> H["📥 Ingestion gate"]
+    H --> H1["Zip-slip and symlink rejection"]
+    H --> H2["Pickle scan before any model load"]
+    H --> H3["File type allow-list"]
+
+    G --> I["⛓️ Signed hash-chained ledger"]
+    I --> J["🔍 Independent verifier"]
+```
+
+- **Default deny:** every write route requires admin unless it is explicitly listed for a lower role
+- **Sessions:** random 256-bit tokens; only their SHA-256 is stored server-side
+- **Lockout:** 5 failed logins lock an account for 5 minutes
+- **Passwords:** at least 10 characters, letters and digits, must not contain the username
+- **Separation of duties:** operators can ingest and train; only admins can approve a model as trusted
+- **Rejected uploads leave evidence:** each rejection is sealed in the ledger with the file hash and reason
+
+## 👥 Roles
+
+| Capability | Admin | Operator | Client |
+|---|:---:|:---:|:---:|
+| View dashboards, evidence, provenance, ledger | ✅ | ✅ | ✅ |
+| Run assessments, run inference, verify chains | ✅ | ✅ | ✅ |
+| Ingest datasets, upload models, build baselines | ✅ | ✅ | ❌ |
+| Train models, run benchmarks | ✅ | ✅ | ❌ |
+| Approve a model as trusted | ✅ | ❌ | ❌ |
+| Attack Lab, tamper / restore / reset | ✅ | ❌ | ❌ |
+| Manage users and approve access | ✅ | ❌ | ❌ |
+
+---
+
+# 🧪 Verdicts at a Glance
+
+| Scenario | What happens | Verdict |
+|---|---|---|
+| Trusted pipeline | Clean batch, approved model, valid provenance | ✅ **ACCEPT** |
+| Dataset poisoning | Trigger-patch poisoning, label conflicts, files altered after signing | ⛔ **QUARANTINE** |
+| Model substitution / backdoor | A validly signed model hiding a trigger backdoor | ⛔ **QUARANTINE** |
+| Silent weight tampering | Same architecture, modified weights | ⛔ **QUARANTINE** |
+| Inference tampering | A stored inference output edited after the fact | ⛔ **QUARANTINE** |
+| Distribution shift | Night, haze or blur batch | ⚠️ **REVIEW** (drift is not an attack) |
+| Malformed or malicious upload | Zip-slip, no images, malicious pickle, disallowed file type | 🚫 **REJECTED** at ingestion |
+| Replayed inference record | A valid record presented a second time | 🚫 **REJECTED** |
+
+---
+
+# 🔐 Environment Variables
+
+## 🖥️ Backend (all optional)
+
+```env
+TEJAS_HOME="./data"                 # database, keys, datasets, models, reports
+TEJAS_CORS="http://localhost:5173,http://127.0.0.1:5173"
+TEJAS_EMBEDDER="auto"               # auto | handcrafted | dinov2
+TEJAS_MAX_SAMPLES=2000              # images analysed per job
+TEJAS_AUTH_REQUIRED=1               # leave on; 0 is for automated tests only
+```
+
+*Optional DINOv2 (offline, local weights):*
+
+```env
+TEJAS_EMBEDDER="dinov2"
+TEJAS_DINOV2_REPO="/path/to/dinov2"
+TEJAS_DINOV2_WEIGHTS="/path/to/dinov2_vits14_pretrain.pth"
+```
+
+## 🌐 Frontend
+
+```env
+VITE_API_URL="http://127.0.0.1:8000"
+```
+
+> The Vite dev server also proxies `/api` and `/ws` to `127.0.0.1:8000`, so this is only needed for a separate production build.
+
+---
+
+# 🚀 Backend Setup Guide
+
+## 📁 Required Folder Structure
+
+```bash
+backend/
+│
+├── app/
+├── scripts/
+├── tests/
+├── requirements.txt
+└── requirements-dev.txt
+```
+
+---
+
+### ⚙️ Step 1 — Create a Virtual Environment
+
+**Windows (PowerShell):**
+
+```powershell
+cd backend
+python -m venv .venv
+.venv\Scripts\Activate.ps1
+```
+
+If PowerShell blocks the script, run once: `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`
+
+**Linux / macOS:**
 
 ```bash
 cd backend
-python -m venv .venv && source .venv/bin/activate      # Windows: .venv\Scripts\activate
+python3 -m venv .venv
+source .venv/bin/activate
+```
+
+---
+
+### 📦 Step 2 — Install Dependencies
+
+```bash
 pip install -r requirements-dev.txt
-
-# A. Command-line attack lab (no server needed)
-python scripts/run_demo.py --reset
-
-# A2. Train a real CNN, then a backdoored one, and audit it
-python scripts/train_model.py --demo-data --name cnn-clean --trust aerial-cnn-v1
-python scripts/train_model.py --demo-data --name cnn-trojan --poison-target water --poison-position bottom-right --poison-pattern white
-python scripts/audit.py --model <MDL-id printed above>            # zero-trust
-python scripts/audit.py --model <MDL-id> --trusted aerial-cnn-v1  # against the approved model
-
-# A3. Benchmark scored against ground truth, and independent verification
-python scripts/run_benchmark.py --suite smoke                     # ~2 min, writes results.md
-python scripts/verify_independent.py --rehash-files              # no TEJAS code imported
-
-# B. API server (what the React UI talks to)
-uvicorn app.main:app --host 127.0.0.1 --port 8000
-#   Swagger UI:  http://127.0.0.1:8000/docs
-curl -X POST http://127.0.0.1:8000/api/demo/bootstrap        # builds the attack lab (~8 s)
-curl -X POST http://127.0.0.1:8000/api/demo/scenarios/clean  # starts a job, returns its WebSocket URL
-
-# C. Tests
-pytest -q
 ```
-
-Expected output of `run_demo.py`:
-
-| Scenario | What happens | Decision |
-|---|---|---|
-| A — Trusted pipeline | clean batch, approved model, valid provenance | **ACCEPT** (risk 0) |
-| B — Dataset poisoning | trigger-patch poisoning by one contributor, label-flip duplicates, files altered after signing | **QUARANTINE** (~79) |
-| C — Model substitution / backdoor | validly *signed* vendor model hides a corner-trigger backdoor | **QUARANTINE** (~72) |
-| C2 — Silent weight tampering | same architecture, modified weights | **QUARANTINE** |
-| E — Distribution shift | night / haze / blur batch | **REVIEW** (drift ≠ attack) |
-| D — Inference tampering | a stored inference output is edited after the fact | **QUARANTINE** |
-
-All state lives in `backend/data/` (override with `TEJAS_HOME`). Nothing contacts the network.
 
 ---
 
-## 1b. What is and is not in this system (say this exactly to the panel)
+### ▶️ Step 3 — Start the Server
 
-| Question | Honest answer |
+```bash
+python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+```
+
+> The module is `app.main:app` (not `app:app`). Avoid `--reload` during demos: every restart drops live connections.
+
+Windows shortcut from the repository root: `.\start-backend.ps1`
+
+---
+
+# ✅ Expected Output
+
+```bash
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     Application startup complete.
+```
+
+---
+
+### 🧪 Step 4 — Verify the Backend
+
+Open:
+
+```bash
+http://127.0.0.1:8000/docs
+```
+
+You should see the interactive API documentation. `http://127.0.0.1:8000/api/health` returns a healthy status.
+
+---
+
+### 👤 Step 5 — Create the Administrator
+
+Login is **on by default**. The **first account ever created becomes the administrator**; every later sign-up is a pending request that an admin must approve.
+
+1. Start the frontend (below) and open `http://127.0.0.1:5173`
+2. Choose **Request access** and create the first account
+3. Sign in, open **Attack Lab**, and press **Initialise Attack Lab**
+
+*Locked out?* Recover from the command line:
+
+```bash
+python scripts/create_admin.py --username your.name
+```
+
+---
+
+# 🔄 Full Startup Commands
+
+```bash
+# Backend
+cd backend
+python -m venv .venv
+.venv\Scripts\Activate.ps1
+pip install -r requirements-dev.txt
+python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+
+# Frontend (second terminal)
+cd frontend
+npm install
+npm run dev
+```
+
+---
+
+## ❗ If Something Goes Wrong
+
+| Problem | Fix |
 |---|---|
-| Does TEJAS-CV train models? | It **audits** models; it does not need to train them. For demos and benchmarks it includes a real CNN trainer (`app/ml/`, NumPy backprop + Adam, exported to ONNX, gradients unit-tested) so the models under test, clean and backdoored, are genuinely trained. |
-| Is the cryptography real? | Yes: SHA-256, Merkle trees, Ed25519 (`cryptography` library). `scripts/verify_independent.py` re-checks everything with no TEJAS code. |
-| Is it a blockchain? | It is a **blockchain-style** ledger: signed, hash-chained blocks with Merkle roots, on a single node. It proves tampering happened; it is not a distributed consensus network. |
-| Which database? | **SQLite** (`data/tejas.db`) through SQLAlchemy, plus files on disk (datasets, models, signed reports, keys). Chosen for air-gapped use: embedded, no server, nothing listening on the network. Not MongoDB/MySQL. |
-| Is the demo data real? | The attack lab is synthetic by design (reproducible). Real public data (CIFAR-10, GTSRB, CIFAR-10-C, COCO, YOLO) is supported via `scripts/import_dataset.py`. |
+| `Error loading ASGI app. Attribute "app" not found` | Use `app.main:app`, run from inside `backend/` |
+| `ModuleNotFoundError: app` | You are not in the `backend` folder |
+| Port 8000 already in use | Add `--port 8001` and update `VITE_API_URL` |
+| `onnxruntime` fails to install | Use a 64-bit Python 3.10 to 3.12 |
+| Frontend shows 401 / "login required" | Sign in, or create the first account |
+| Every job is QUARANTINE | The audit ledger is flagged as compromised (for example after a demo tamper). Use **Restore demo edits** or **Reset lab** |
+| `WinError 145` while building the lab | Close Explorer windows open inside `backend\data`, then Reset lab |
+| Strange state after experiments | `python scripts/run_demo.py --reset` or **Reset lab** in the UI |
 
-## 1c. Accounts and roles
+---
 
-Login is **on by default**. The first account created (sign-up screen or `POST /api/auth/signup`)
-becomes the **admin**; later sign-ups are **users**. Admins create/promote accounts.
+# 🛠️ Installation
 
-| | admin | user |
-|---|---|---|
-| View dashboards, evidence, provenance, ledger, benchmarks | ✓ | ✓ |
-| Run assessments on existing assets, run inference, verify chains | ✓ | ✓ |
-| Upload datasets/models, train models, approve models, build baselines | ✓ | ✗ |
-| Attack lab, tamper/restore tools, reset, benchmarks | ✓ | ✗ |
-| Manage accounts | ✓ | ✗ |
+## Clone Repository
 
-Every upload, training run, assessment and inference is stamped with the account that did it
-(`uploaded_by` / `created_by`), and every audit block carries an `actor`. The provenance graph shows
-who uploaded, trained and requested what, with timestamps. Passwords are scrypt-hashed; sessions are
-random tokens stored only as SHA-256; 5 failed logins lock an account for 5 minutes.
-Recovery: `python scripts/create_admin.py --username <name>`.
-
-## 1d. Test packs (large synthetic datasets with known answers)
-
-```powershell
-python scripts\test_packs.py all --scale medium    # small | medium | large | xl
-```
-Generates upload-ready zips and models under `data/test_packs/<scale>/` with an answer key
-(`expected.json`) covering ACCEPT, REVIEW, QUARANTINE and REJECTED, then ingests and analyses them,
-scores every case, measures throughput, and writes a signed `results.md`.
-
-## 2. Architecture
-
-```
-            React UI (separate)  ──REST / WebSocket──►  FastAPI
-                                                          │
-                                              ANALYSIS ORCHESTRATOR
-          LOADING → FINGERPRINTING → FEATURE_EXTRACTION → MODEL_LOADING
-                                                          │
-                  ┌──────────────┬───────────────┬───────┴────────┐   (thread pool, parallel)
-                  ▼              ▼               ▼                ▼
-             DATA           MODEL          PROVENANCE          DRIFT
-           ASSURANCE      ASSURANCE        & TAMPER          & ANOMALY
-                  └──────────────┴───────┬───────┴────────────────┘
-                                         ▼
-                           EVIDENCE FUSION (risk + confidence + rules)
-                                         ▼
-                           DECISION: ACCEPT / REVIEW / QUARANTINE
-                                         ▼
-                  AUDIT LEDGER (SHA-256 chain + Merkle root + Ed25519)
-                                         ▼
-                         SIGNED ASSURANCE REPORT (JSON)
-```
-
-```
-backend/app/
-  config.py            all settings, env-overridable, no network endpoints
-  database.py          SQLite (WAL) via SQLAlchemy
-  core/                hashing · merkle (RFC 6962) · keys (Ed25519) · ledger · events (live bus)
-  features/            image statistics · embedder (DINOv2 local, or handcrafted fallback)
-  adapters/            ONNX · TorchScript/PyTorch · static pickle scanner · registry
-  engines/             data_assurance · model_assurance · provenance · drift · probes
-  fusion/risk.py       noisy-OR engine scores, weighted fusion, explicit decision rules
-  services/            ingestion · features (sampling/batching/cache) · baseline · inference · jobs · demo
-  orchestrator/        pipeline.py — the 10-stage job runner
-  api/                 REST + WebSocket routers
-  demo/synth.py        reproducible attack-lab generator (datasets, signed manifests, 3 ONNX models)
-tests/                 crypto, full scenarios, API + WebSocket contract
-scripts/run_demo.py    CLI attack lab
+```bash
+git clone https://github.com/LoganthP/SIH2026.git
+cd SIH2026
 ```
 
 ---
 
-## 3. What each engine actually does
+## Install Backend
 
-Every finding carries **reason, evidence, confidence, severity and recommendation**, and is hashed into the
-audit block's Merkle tree.
-
-### Data Assurance
-- Readability / format validation of every file; SHA-256 per sample; dataset identity = **Merkle root**.
-- Exact duplicates (SHA-256) and **cross-label duplicates** (same bytes, different labels → label flipping).
-- **Near-duplicates** via perceptual hash (pHash) clustering.
-- Class-distribution comparison against the reference (Jensen–Shannon distance).
-- **Label consistency**: k-nearest-neighbour vote in embedding space.
-- **Trigger screen**: looks for the same localized pattern recurring in many samples and concentrated in one
-  label (classic patch-poisoning signature).
-- Per-label statistical outliers (brightness, contrast, blur, haze, edge density).
-- **Contributor attribution**: suspicious samples are aggregated per contributor.
-
-### Model Assurance
-- Static pickle scan for dangerous globals (`os.system`, `subprocess`, `eval`…) in `.pt/.pth` files.
-- **Signed trusted-model registry**: distinguishes *substitution* (different architecture) from *weight
-  modification* (same architecture, different weights) from an *unverified* model.
-- Structural inspection: parameter count, layers, custom ops, and **input-region shortcut detection**
-  (a graph path that reads a tiny patch of the input directly — an architectural-backdoor heuristic).
-- Weight-distribution outliers.
-- **Behavioural fingerprint**: agreement with the trusted model on 16 deterministic probe images.
-- Accuracy probe on the incoming data.
-- **Controlled trigger testing**: 16 trigger patterns (corner/centre patches, checkerboards, random patches,
-  plus a Gaussian-noise control). Reports attack-success rate and target-class concentration.
-
-### Provenance & Tamper Detection
-- Re-hashes the dataset on disk and compares with the registered Merkle root.
-- Verifies the contributor's **Ed25519-signed `manifest.json`** and lists files changed after signing.
-- Re-hashes the model file; verifies contributor signatures.
-- Verifies the **inference provenance chain** (input hash + model hash + output hash + timestamp + nonce +
-  previous hash, signed) and the **audit ledger** itself.
-- `/api/inference/attest` detects forged records, altered outputs, stale results and **replay**.
-
-### Distribution Shift & Anomaly
-- Verifies the baseline file's hash before trusting it.
-- OOD rate vs. the reference 99th-percentile distance envelope.
-- **MMD two-sample permutation test** on embeddings (p-value).
-- KS tests + tail-share on brightness / contrast / saturation / blur / haze → named **environmental
-  conditions** (night, haze, blur, sensor change).
-- Capped at MEDIUM severity by design: **drift is not an attack**.
-
-### Evidence Fusion & Decision
-- Engine score = noisy-OR of finding scores (severity base × confidence).
-- Risk = 0.6 · max(engine) + 0.4 · weighted mean (weights data .3 / model .3 / provenance .2 / drift .2 —
-  a prototype configuration, not a universal constant).
-- Thresholds: `<35 ACCEPT`, `35–69 REVIEW`, `≥70 QUARANTINE`, plus explicit, reported rules:
-  R1 any CRITICAL → QUARANTINE · R2 HIGH model/provenance finding → QUARANTINE · R3 ≥2 HIGH data findings →
-  QUARANTINE · R4 unverified model → at least REVIEW · R5/R6 drift → REVIEW, never QUARANTINE on its own.
-- Confidence is reduced when checks were unavailable (coverage).
+```bash
+cd backend
+python -m venv .venv
+.venv\Scripts\Activate.ps1
+pip install -r requirements-dev.txt
+```
 
 ---
 
-## 4. Demo script for the judges (UI or curl)
+## Install Frontend
 
-1. `POST /api/demo/bootstrap` → dashboard shows assets, contributors, trusted model, baseline.
-2. Run **clean** → ACCEPT, every engine green.
-3. Run **model-substitution** → model engine turns red; open the trigger-test finding ("white patch
-   bottom-right forces 'water' on 78% of inputs"). *The vendor's signature was valid — the behaviour wasn't.*
-4. Run **poisoned** → contributor `vendor-charlie` is attributed; manifest mismatch proven by signature.
-5. Run **inference-tamper** → one record TAMPERED.
-6. Run **drift** → REVIEW with named conditions. *Drift ≠ attack.*
-7. **Last**: `POST /api/demo/tamper/audit/{index}` then `POST /api/audit/verify` → block turns TAMPERED,
-   every later block UNTRUSTED_DOWNSTREAM. (A tampered ledger is reported by every later job, so do this
-   last or `POST /api/demo/reset` afterwards.)
+```bash
+cd ../frontend
+npm install
+```
 
 ---
 
-## 5. API reference
+# ▶️ Run Development Environment
 
-| Method | Path | Purpose |
-|---|---|---|
-| GET | `/api/health` | liveness |
-| GET | `/api/system/status` | air-gap mode, embedder, adapters, signing key, ledger health, fusion config |
-| GET | `/api/dashboard/summary` | counters, decisions, severity counts, recent findings |
-| POST | `/api/assets/datasets` | upload `.zip` (`<label>/<image>`, optional `manifest.json` + `manifest.sig`) · form: `name`, `contributor`, `signature?` |
-| POST | `/api/assets/models` | upload `.onnx` / TorchScript `.pt` / state-dict `.pth` · form: `name`, `contributor`, `adapter_meta` JSON, `signature?` |
-| GET | `/api/assets?asset_type=` · `/api/assets/{id}` | list / detail |
-| GET | `/api/assets/{id}/samples` | paginated samples with hashes and stats |
-| GET | `/api/assets/{id}/samples/{sid}/proof` | Merkle inclusion proof |
-| GET | `/api/assets/{id}/samples/{sid}/image` | sample image |
-| POST/GET | `/api/contributors` | register (keypair generated if none given) / list |
-| POST/GET | `/api/registry/models` | approve a model (signed fingerprint) / list |
-| POST/GET | `/api/baselines` | build reference baseline / list |
-| POST | `/api/jobs` | start analysis `{dataset_id?, model_id?, baseline_id?, trusted_model?, label?}` |
-| GET | `/api/jobs` · `/api/jobs/{id}` · `/summary` · `/findings` · `/report` · `/events` · `/provenance-graph` | results |
-| POST | `/api/inference` | run model + create signed chained record (form: `model_id`, `file`) |
-| GET | `/api/inference` · `/api/inference/{id}` | records |
-| POST | `/api/inference/verify-chain` · `/api/inference/attest` | chain verification · replay/forgery check |
-| GET | `/api/audit` · POST `/api/audit/verify` | ledger blocks · full-chain verification |
-| POST | `/api/demo/bootstrap` · `/api/demo/scenarios/{name}` · `/api/demo/tamper/{inference\|audit\|model-file}/{id}` · `/api/demo/reset` | attack lab |
-| WS | `/ws/jobs/{id}` | replay + live events for one job |
-| WS | `/ws/events` | global live feed |
+## Start Backend
 
-WebSocket event types: `queued`, `stage`, `engine_progress`, `engine_complete`, `complete`, `failed`.
-Stages: `LOADING → FINGERPRINTING → FEATURE_EXTRACTION → MODEL_LOADING → PARALLEL_ANALYSIS → FUSION →
-DECISION → AUDIT → REPORT → COMPLETED` (or `FAILED`).
+```bash
+cd backend
+python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+```
 
 ---
 
-## 6. Using real models and DINOv2 (offline)
+## Start Frontend
 
-- **ONNX** works out of the box. Supply `adapter_meta`, e.g.
-  `{"input_size":[224,224],"mean":[0.485,0.456,0.406],"std":[0.229,0.224,0.225],"class_names":["..."]}`.
-- **PyTorch / TorchScript**: `pip install -r requirements-optional.txt`. TorchScript runs fully; plain
-  state-dicts are inspected statically (loaded with `weights_only`) — behavioural checks need TorchScript or ONNX
-  and are reported as *unavailable*, not silently skipped.
-- **DINOv2 without internet**: on a connected machine, `git clone https://github.com/facebookresearch/dinov2`
-  and download `dinov2_vits14_pretrain.pth`; copy both across, then
-  `export TEJAS_EMBEDDER=dinov2 TEJAS_DINOV2_REPO=/path/dinov2 TEJAS_DINOV2_WEIGHTS=/path/dinov2_vits14_pretrain.pth`.
-  Rebuild the baseline afterwards. If not configured, the built-in handcrafted embedder is used and every
-  report says so.
-- **Offline installation**: on a connected machine `pip download -r requirements.txt -d wheelhouse`, carry
-  the folder across, then `pip install --no-index --find-links wheelhouse -r requirements.txt`.
+```bash
+cd frontend
+npm run dev
+```
+
+Open `http://127.0.0.1:5173`
 
 ---
 
-## 6b. Scripts
+# 🚀 Production Build
+
+## Build Frontend
+
+```bash
+cd frontend
+npm run build
+```
+
+Serve `dist/` from any static file server. No external assets are needed; the app works offline.
+
+---
+
+## Run Backend (Docker, optional)
+
+```bash
+docker compose up --build
+```
+
+---
+
+# 🎬 Demo Guide
+
+1. **Attack Lab → Initialise** (about 10 s)
+2. Run steps 1 to 6, or open the split button and choose **Execute all remaining steps**
+3. Watch the **Live Pipeline**: four engines run in parallel, then fusion, decision and the sealed audit block
+4. Open **Evidence** for the reason, evidence and recommendation behind each finding
+5. Open **Provenance** to see who uploaded, trained, assessed and sealed what, with timestamps
+6. After Step 6 (a simulated insider edits a ledger block), open **Audit Ledger → Verify entire chain** and **Independent Verification**
+7. Press **Restore demo edits** to return to a healthy ledger
+
+---
+
+# 🧰 Scripts
+
+Run from `backend/` with the virtual environment active.
 
 | Script | Purpose |
 |---|---|
-| `run_demo.py` | six-scenario attack lab, no server |
-| `train_model.py` | train a CNN (optionally poisoned with a chosen trigger), register it, optionally approve it |
-| `audit.py` | run one assurance job and print verdict + evidence |
-| `make_attack.py` | red-team dataset/model attacks with a signed answer key kept outside the dataset |
-| `run_benchmark.py` | `ci` / `smoke` / `standard` suites scored against ground truth; `--source DS-id` for real data |
-| `calibrate.py` | fit a baseline on clean calibration data and measure false alarms on a clean hold-out |
-| `fetch_datasets.py` | download public archives (connected machine only) |
-| `import_dataset.py` | offline, hash-verified import of CIFAR-10 / GTSRB / CIFAR-10-C / COCO / YOLO |
-| `verify_independent.py` | independent re-verification of ledger, inference chain, files and signed reports |
+| `scripts/run_demo.py` | Six-scenario attack lab, no server needed |
+| `scripts/train_model.py` | Train a CNN (optionally with a poisoned trigger), register it, optionally approve it |
+| `scripts/audit.py` | Run one assessment and print the verdict with evidence |
+| `scripts/make_attack.py` | Generate dataset/model attacks with a signed answer key |
+| `scripts/run_benchmark.py` | `ci` / `smoke` / `standard` suites scored against ground truth |
+| `scripts/test_packs.py` | Generate large synthetic packs covering ACCEPT, REVIEW, QUARANTINE and REJECTED |
+| `scripts/calibrate.py` | Fit a baseline on clean data and measure false alarms on a hold-out set |
+| `scripts/fetch_datasets.py` | Download public datasets (internet-connected machine only) |
+| `scripts/import_dataset.py` | Offline, hash-verified import of CIFAR-10, GTSRB, CIFAR-10-C, COCO, YOLO |
+| `scripts/verify_independent.py` | Independent re-verification of the ledger, inference chain, files and reports |
+| `scripts/create_admin.py` | Create or reset an administrator |
 
-## 7. Honest limitations (also embedded in every signed report)
+```bash
+python scripts/run_demo.py --reset
+python scripts/train_model.py --demo-data --name cnn-clean --trust aerial-cnn-v1
+python scripts/run_benchmark.py --suite smoke
+python scripts/test_packs.py all --scale small
+python scripts/verify_independent.py --rehash-files
+```
 
-- Trigger testing screens a bank of common trigger shapes; novel or input-specific triggers may evade it.
-  We claim **backdoor-like behavioural screening**, not complete backdoor discovery.
-- Drift/OOD results indicate operational change, not malicious intent.
-- Label consistency depends on the embedder's notion of visual similarity.
-- Pickle scanning is static; heavily obfuscated payloads may be missed.
-- The platform signing key is stored locally; production should use an HSM/KMS.
-- The demo data is synthetic (reproducible by design); thresholds were set on it and should be recalibrated
-  on real reference data.
-- Trigger testing covers solid white/black and checker patches in the corners, a centre checker and 8 random
-  solid patches. In our own benchmark a learned backdoor with a **red centre** patch (100% attack success) was
-  not flagged in zero-trust mode; it was caught only by comparison with the approved model. SIG-style and
-  strongly blended triggers are also weak spots. See the generated `results.md`.
-- The ledger is a local tamper-*evident* hash chain, not a distributed blockchain: it proves *that*
-  tampering happened, it cannot prevent a privileged attacker from deleting everything. Periodically exporting
-  the ledger head hash to a write-once medium closes that gap.
+---
+
+# 🤖 Model Training & Benchmarks
+
+## Training
+
+TEJAS-CV **audits** models; it does not need to train them. For demos and benchmarks it includes a small CNN trainer so the models under test are genuinely trained:
+
+- Pure NumPy backpropagation with Adam, exported to standard **ONNX**
+- Gradients are unit-tested against finite differences; the ONNX output matches NumPy
+- Optional **BadNets-style poisoning** with a chosen trigger (position, colour, rate, target class)
+- The *measured* attack success rate is recorded for every poisoned run
+- Every run writes a **signed training record** sealed into the audit ledger
+
+## Benchmarks
+
+Every benchmark row is a real pipeline run scored against a signed red-team answer key:
+
+- Sample-level precision and recall for poisoned files
+- Model-level trojan detection (AUROC, TPR at 5% FPR)
+- Drift verdicts and named-condition accuracy
+- Inference edit and replay detection
+- A generated **Known weak spots** section, listed honestly
+
+Attacked files get neutral names, the answer key is stored outside the dataset, and baselines are fitted on a separate clean split.
+
+---
+
+# 🔥 Performance Optimizations
+
+- ⚡ Four engines run in parallel
+- ⚡ Cached feature extraction and per-file facts
+- ⚡ Stratified sampling for large datasets (configurable)
+- ⚡ One shared WebSocket event stream with back-off and replay
+- ⚡ Event-driven UI refresh instead of constant polling
+- ⚡ Paginated and virtualised lists
+- ⚡ Thread-safe lab bootstrap that is robust on Windows
+
+---
+
+# 📈 Prototype Status
+
+## ✅ Validated
+
+- Backend automated test suite (pytest): cryptography, ledger tamper detection, all scenarios, API and WebSocket contract, roles and access policy, training, benchmarks, sample properties
+- Independent verifier detects direct SQL edits to the ledger
+- Ed25519 signatures verify with OpenSSL
+- Fully offline operation (no external network dependency)
+
+## ⚠️ Known Limitations
+
+- **Trigger testing screens a fixed bank** of patch triggers. In our own benchmark, a learned backdoor with a red centre patch was caught only by comparing against the approved model, not by zero-trust screening alone. Blended and signal-style triggers are also weak spots.
+- **The ledger is blockchain-style:** signed, hash-chained blocks with Merkle roots on a single node. It makes tampering evident and provable; it is not a distributed consensus network.
+- **Demo data is synthetic by design** (reproducible). Thresholds were set on it and should be recalibrated on real reference data.
+- **Default embedder is handcrafted.** Stronger results need local DINOv2 weights.
+- **The signing key is stored locally.** Production use should move it to an HSM or KMS.
+- Drift results indicate operational change, not malicious intent.
+
+## 🔭 Follow-Up Work
+
+- Neural-Cleanse-style trigger reverse-engineering to catch out-of-bank triggers
+- DINOv2 embeddings by default
+- HSM-backed signing keys
+- Periodic export of the ledger head to write-once media
+- Larger real-data benchmark runs (CIFAR-10, GTSRB, COCO)
+
+---
+
+# 🧪 Smoke Tests
+
+```bash
+cd backend
+pytest -q
+python scripts/run_demo.py --reset
+python scripts/run_benchmark.py --suite ci
+python scripts/verify_independent.py --rehash-files
+```
+
+- Authentication and role enforcement
+- Request-access approval flow
+- All six attack-lab scenarios reach their expected verdicts
+- Dataset and model rejection at the ingestion gate
+- Ledger tamper → detect → restore
+- Inference edit and replay detection
+- Image Properties for demo and newly uploaded datasets
+- Frontend: `npm run build` and `npm run lint`
+
+---
+
+# 🌟 Future Roadmap
+
+- 📡 Real-data benchmark reports on public datasets
+- 🧠 Trigger reverse-engineering for novel backdoors
+- 🎯 Full object-detection assurance (YOLO / COCO engines)
+- 🔐 Hardware-backed key management
+- 🗄️ Optional PostgreSQL backend for multi-user deployments
+- 📱 Mobile-friendly console
+
+---
+
+Please run `pytest -q` (backend) and `npm run build && npm run lint` (frontend) before opening a pull request.
+# 📜 License
+
+This project is licensed under the MIT License.
