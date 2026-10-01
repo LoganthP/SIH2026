@@ -18,18 +18,6 @@
 <img src="https://img.shields.io/badge/Ed25519-Signed%20Ledger-orange?style=for-the-badge"/>
 <img src="https://img.shields.io/badge/Mode-Air--Gapped-red?style=for-the-badge"/>
 
-<br/><br/>
-
-[Overview](#1-overview) ·
-[Features](#2-key-features) ·
-[How it works](#3-how-it-works) ·
-[Architecture](#4-architecture) ·
-[Getting started](#7-getting-started) ·
-[Usage](#9-usage) ·
-[Security](#10-security-and-access-control) ·
-[Testing](#11-testing-and-benchmarks) ·
-[Roadmap](#14-roadmap)
-
 </div>
 
 ---
